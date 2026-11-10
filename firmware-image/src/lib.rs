@@ -43,12 +43,11 @@ pub const CHECKSUM_OFFSET: usize = 0x3340c;
 pub const MARKER_OFFSET: usize = 0x33410;
 pub const MARKER: u8 = 0x80;
 /// Upper code region: the firmware programs it itself (the update path
-/// writes only below [`ERASE_CEILING`]). It ends one blank sector below the
-/// sector at `0x6e000`, which holds data nothing may erase (read on the
-/// device by the `flash-probe` firmware; `[0x44000, 0x6e000)` read blank).
+/// writes only below [`ERASE_CEILING`]). The six sectors after this region
+/// are reserved for screenshots. The factory data sector starts at `0x6e000`.
 /// Matches `UPPER` in `firmware/memory.x`.
 pub const UPPER_BASE: u32 = ERASE_CEILING;
-pub const UPPER_END: u32 = 0x6c000;
+pub const UPPER_END: u32 = 0x62000;
 /// Length and hash of an upper region's bytes, as little-endian words.
 #[repr(C)]
 #[derive(Clone, Copy)]

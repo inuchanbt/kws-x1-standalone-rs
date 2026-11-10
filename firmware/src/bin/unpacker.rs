@@ -23,7 +23,7 @@ use firmware_image::{
         PACKED_MAGIC, PACKED_UNSET, Packed, Stream, WINDOW_BYTES, inflate_sectors,
         main_erase_margin,
     },
-    region_hash_update,
+    region_hash, region_hash_update,
 };
 use hc32f460_pac as _;
 use panic_halt as _;
@@ -88,13 +88,37 @@ fn main() -> ! {
     let mut backlight =
         unsafe { OutputPin::new_high_drive(BACKLIGHT_PORT, BACKLIGHT_PIN, Level::High) };
     let mut window = [0; WINDOW_BYTES];
-    if let Some(packed) = record()
-        && intact(stream(&packed, Part::Upper), packed.upper, &mut window)
-        && intact(stream(&packed, Part::Main), packed.main, &mut window)
-        && install_upper(&packed, &mut window)
-        && install_main(&packed, &mut window)
-    {
-        cortex_m::peripheral::SCB::sys_reset();
+    if let Some(packed) = record() {
+        let has_upper = packed.upper.packed != 0;
+        let has_main = packed.main.packed != 0;
+        let upper_intact = if has_upper {
+            intact(stream(&packed, Part::Upper), packed.upper, &mut window)
+        } else {
+            // SAFETY: record checked the length against the fixed upper region.
+            let installed = unsafe {
+                core::slice::from_raw_parts(UPPER_BASE as *const u8, packed.upper.len as usize)
+            };
+            region_hash(installed) == packed.upper.hash
+        };
+        if upper_intact
+            && (!has_main || intact(stream(&packed, Part::Main), packed.main, &mut window))
+            && (!has_upper || install_upper(&packed, &mut window))
+        {
+            if !has_main {
+                // Stage one is complete. Two short flashes followed by a
+                // steady backlight tell the user to re-enter the bootloader.
+                for _ in 0..4 {
+                    backlight.toggle();
+                    cortex_m::asm::delay(BLINK_CYCLES / 4);
+                }
+                loop {
+                    cortex_m::asm::wfi();
+                }
+            }
+            if install_main(&packed, &mut window) {
+                cortex_m::peripheral::SCB::sys_reset();
+            }
+        }
     }
     loop {
         backlight.toggle();
@@ -114,6 +138,9 @@ fn record() -> Option<Packed> {
     let fits = packed.magic == PACKED_MAGIC
         && packed.data >= APP_BASE
         && streams_end <= APP_BASE as usize + APP_LIMIT
+        && packed.upper.len != 0
+        && (packed.upper.packed != 0 || packed.main.packed != 0)
+        && ((packed.main.packed != 0) == (packed.main.len != 0))
         && packed.upper.len.is_multiple_of(4)
         && packed.upper.len <= UPPER_END - UPPER_BASE
         && packed.main.len.is_multiple_of(4)
@@ -133,8 +160,8 @@ fn stream(packed: &Packed, part: Part) -> &'static [u8] {
         Part::Main => (packed.data + packed.upper.packed, packed.main.packed),
     };
     // SAFETY: `record` checked both streams lie in this image's flash. Only
-    // the main firmware's install erases any of it, and only sectors wholly
-    // below the bytes the decompressor has yet to read (`main_erase_margin`).
+    // the main firmware's install erases any of it, and only sectors with
+    // no bytes left for the decompressor to read (`main_erase_margin`).
     unsafe { core::slice::from_raw_parts(start as *const u8, len as usize) }
 }
 
@@ -142,7 +169,7 @@ fn stream(packed: &Packed, part: Part) -> &'static [u8] {
 fn intact(bytes: &[u8], stream: Stream, window: &mut [u8; WINDOW_BYTES]) -> bool {
     let mut hash = REGION_HASH_START;
     let inflated = inflate_sectors(bytes, window, |chunk| {
-        hash = region_hash_update(hash, chunk.bytes);
+        hash = region_hash_update(hash, chunk.bytes());
         true
     });
     inflated.is_ok_and(|len| len == stream.len as usize) && hash == stream.hash
@@ -152,7 +179,7 @@ fn install_upper(packed: &Packed, window: &mut [u8; WINDOW_BYTES]) -> bool {
     inflate_sectors(stream(packed, Part::Upper), window, |chunk| {
         write_sector(
             UPPER_BASE as usize + chunk.offset,
-            chunk.bytes,
+            chunk.bytes(),
             UPPER_BASE..UPPER_END,
         )
     })
@@ -160,13 +187,22 @@ fn install_upper(packed: &Packed, window: &mut [u8; WINDOW_BYTES]) -> bool {
 }
 
 fn install_main(packed: &Packed, window: &mut [u8; WINDOW_BYTES]) -> bool {
-    inflate_sectors(stream(packed, Part::Main), window, |chunk| {
-        main_erase_margin(packed, chunk.offset, chunk.consumed).is_some()
-            && write_sector(
-                APP_BASE as usize + chunk.offset,
-                chunk.bytes,
-                APP_BASE..ERASE_CEILING,
-            )
+    inflate_sectors(stream(packed, Part::Main), window, |mut chunk| {
+        if main_erase_margin(packed, chunk.offset, chunk.consumed).is_none() {
+            return false;
+        }
+        let base = APP_BASE as usize + chunk.offset;
+        let bytes = if base + SECTOR == ERASE_CEILING as usize {
+            // The stream ended. Keep the sector's footer and padding in
+            // the decoder's output buffer across erase and rewrite.
+            let Some(bytes) = chunk.preserve_tail(|offset| read(base + offset)) else {
+                return false;
+            };
+            bytes
+        } else {
+            chunk.bytes()
+        };
+        write_sector(base, bytes, APP_BASE..ERASE_CEILING)
     })
     .is_ok()
 }

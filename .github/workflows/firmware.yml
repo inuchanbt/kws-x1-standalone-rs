@@ -33,28 +33,54 @@ jobs:
           cargo fmt --all -- --check
           cargo clippy -p firmware --all-features --target thumbv7em-none-eabihf --locked -- -D warnings
           cargo clippy --workspace --exclude firmware --all-targets --locked -- -D warnings
+          cargo test -p firmware-core --test screenshot --features capture-backup --locked
           cargo test -p firmware-pack --test cli --locked
       - name: Build normal release firmware without diagnostic features
-        run: cargo build --release -p firmware --target thumbv7em-none-eabihf --locked
+        id: firmware_build
+        env:
+          BUILD_USB_VID: ${{ vars.KWS_X1_USB_VID }}
+          BUILD_USB_PID: ${{ vars.KWS_X1_USB_PID }}
+        run: |
+          publishable=false
+          if [[ "$BUILD_USB_VID" =~ ^[[:xdigit:]]{4}$ && "$BUILD_USB_PID" =~ ^[[:xdigit:]]{4}$ ]] &&
+             [[ "$BUILD_USB_VID" != 0000 && "$BUILD_USB_PID" != 0000 && "${BUILD_USB_VID,,}:${BUILD_USB_PID,,}" != '1209:0001' ]]; then
+            publishable=true
+          fi
+          echo "publishable=$publishable" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/firmware-v* ]]; then
+            if [[ "$publishable" != true ]]; then
+              echo 'Release builds require an assigned KWS_X1_USB_VID and KWS_X1_USB_PID' >&2
+              exit 1
+            fi
+          fi
+          if [[ -n "$BUILD_USB_VID" && -n "$BUILD_USB_PID" ]]; then
+            export KWS_X1_USB_VID="$BUILD_USB_VID" KWS_X1_USB_PID="$BUILD_USB_PID"
+          fi
+          cargo build --release -p firmware --target thumbv7em-none-eabihf --locked
       - name: Prepare and audit flashable firmware
         run: |
           mkdir -p dist
           elf=target/thumbv7em-none-eabihf/release
-          cargo run --release -p firmware-pack --locked -- pack \
-            --firmware "$elf/firmware" --unpacker "$elf/unpacker" \
-            --out dist/firmware.X1C \
-            > dist/firmware-package.json
-          image_sha256=$(sha256sum dist/firmware.X1C | cut -d ' ' -f 1)
-          cargo run --release -p firmware-pack --locked -- audit \
-            --image dist/firmware.X1C --confirm-sha256 "$image_sha256" \
-            --firmware "$elf/firmware" --unpacker "$elf/unpacker" \
-            > dist/firmware-audit.json
-          cargo run --release -p flasher --locked -- \
-            --dry-run --image dist/firmware.X1C --confirm-sha256 "$image_sha256"
-          cp LICENSE-MIT LICENSE-APACHE dist/
+          for stage in upper main; do
+            name=firmware
+            if [[ "$stage" == upper ]]; then name=firmware-upper; fi
+            image="dist/$name.X1C"
+            cargo run --release -p firmware-pack --locked -- pack --stage "$stage" \
+              --firmware "$elf/firmware" --unpacker "$elf/unpacker" \
+              --out "$image" > "dist/$name-package.json"
+            image_sha256=$(sha256sum "$image" | cut -d ' ' -f 1)
+            cargo run --release -p firmware-pack --locked -- audit --stage "$stage" \
+              --image "$image" --confirm-sha256 "$image_sha256" \
+              --firmware "$elf/firmware" --unpacker "$elf/unpacker" \
+              > "dist/$name-audit.json"
+            cargo run --release -p flasher --locked -- \
+              --dry-run --image "$image" --confirm-sha256 "$image_sha256"
+          done
+          cp LICENSE-MIT LICENSE-APACHE docs/FLASHING.md dist/
           cd dist
-          sha256sum firmware.X1C LICENSE-MIT LICENSE-APACHE > SHA256SUMS
+          sha256sum firmware-upper.X1C firmware.X1C FLASHING.md LICENSE-MIT LICENSE-APACHE > SHA256SUMS
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.firmware_build.outputs.publishable == 'true'
         with:
           name: firmware
           if-no-files-found: error
@@ -89,4 +115,4 @@ jobs:
           fi
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --verify-tag --generate-notes "${prerelease[@]}" \
-            firmware.X1C SHA256SUMS LICENSE-MIT LICENSE-APACHE
+            firmware-upper.X1C firmware.X1C SHA256SUMS FLASHING.md LICENSE-MIT LICENSE-APACHE

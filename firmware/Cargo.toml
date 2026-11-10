@@ -30,6 +30,12 @@ cable-log = []
 # Read-only flash probe sections on the System page (bootloader, trailer,
 # upper sectors); never writes or erases.
 flash-probe = []
+# Classify and fingerprint the six dedicated capture sectors on the System page.
+capture-probe = []
+# Include a read-only dump of the dedicated capture region on the USB drive.
+capture-backup = ["firmware-core/capture-backup"]
+# Enable the device-specific cleanup prompt in the initialized application.
+capture-reclaim = []
 
 [dependencies]
 cortex-m = { workspace = true, features = ["critical-section-single-core"] }
@@ -49,4 +55,5 @@ panic-halt.workspace = true
 qc-protocol.workspace = true
 single-wire-protocols.workspace = true
 u8g2-fonts.workspace = true
+usb-device = { version = "0.3.2", default-features = false }
 usbpd.workspace = true

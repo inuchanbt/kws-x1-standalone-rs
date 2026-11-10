@@ -30,14 +30,19 @@ mod protocol;
 mod qc_drive;
 mod single_wire_drive;
 
+#[cfg(feature = "capture-reclaim")]
+mod capture_reclaim;
 mod pd_service;
 mod pd_sniff;
 mod render;
 mod ripple;
+mod screenshot;
 mod settings_store;
 mod storage_diag;
 mod ui;
 mod upper;
+mod usb_bus;
+mod usb_export;
 
 use core::ptr::addr_of_mut;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -60,6 +65,7 @@ use firmware_core::buttons as button_logic;
 use firmware_core::calibration::{Average, Calibration, Mean};
 use firmware_core::energy::{Totals, Tracker};
 use firmware_core::power_history::{self, History};
+use firmware_core::screenshot_disk::Disk;
 use firmware_core::settings::{
     AfcFindings, FcpFindings, NextBoot, QcFindings, Rotation, ScpFindings, Screen,
 };
@@ -185,14 +191,22 @@ static CABLE_SVIDS: embassy_sync::blocking_mutex::Mutex<
 > = embassy_sync::blocking_mutex::Mutex::new(core::cell::RefCell::new(
     firmware_core::pd_svids::Svids::EMPTY,
 ));
+static CABLE_SVID_VERSION: AtomicU32 = AtomicU32::new(0);
 struct CableSvidStore;
 static CABLE_SVID_STORE: CableSvidStore = CableSvidStore;
 impl firmware_core::pd_svids::Store for CableSvidStore {
     fn clear(&self) {
-        CABLE_SVIDS.lock(|cell| cell.borrow_mut().clear());
+        CABLE_SVIDS.lock(|cell| {
+            cell.borrow_mut().clear();
+            CABLE_SVID_VERSION.fetch_add(1, Ordering::Relaxed);
+        });
     }
     fn response(&self, objects: &[u32]) -> Option<firmware_core::pd_svids::Progress> {
-        CABLE_SVIDS.lock(|cell| cell.borrow_mut().response(objects))
+        CABLE_SVIDS.lock(|cell| {
+            let progress = cell.borrow_mut().response(objects);
+            CABLE_SVID_VERSION.fetch_add(1, Ordering::Relaxed);
+            progress
+        })
     }
     fn at(&self, index: u16) -> Option<u16> {
         CABLE_SVIDS.lock(|cell| cell.borrow().at(index))
@@ -801,6 +815,8 @@ async fn button_task(
     let mut rotation = saved.rotation;
     // A PD restart must not race an SCP control transaction or shutdown.
     let mut restart_pending = false;
+    let mut capture_hold = 0u8;
+    let mut report_hold = false;
     let mut previous = Instant::now();
     let mut gap = WindowPeak::new(&BUTTON_GAP_MS);
     loop {
@@ -810,9 +826,42 @@ async fn button_task(
         if let Some(tilted) = orientation_updates.try_changed() {
             sensed_rotation = tilted;
         }
-        let mut raw = inputs.iter().enumerate().fold(0u8, |mask, (index, pin)| {
-            mask | (u8::from(pin.is_low()) << index)
-        });
+        let mut raw = button_mask(&inputs);
+        const CAPTURE_SAMPLES: u8 = (500 / button_logic::POLL_MS) as u8;
+        const REPORT_SAMPLES: u8 = (2_000 / button_logic::POLL_MS) as u8;
+        let arrows = raw & CAPTURE_ARROWS;
+        if arrows == CAPTURE_ARROWS && capture_hold != u8::MAX {
+            if capture_hold == 0 {
+                report_hold = matches!(navigation.page().view(), View::Detail { .. });
+            }
+            let limit = if report_hold {
+                REPORT_SAMPLES
+            } else {
+                CAPTURE_SAMPLES
+            };
+            if capture_hold < limit {
+                capture_hold += 1;
+                if capture_hold == limit {
+                    screenshot::request(if report_hold {
+                        screenshot::Kind::Report
+                    } else {
+                        screenshot::Kind::Screen
+                    });
+                }
+            }
+        } else if capture_hold != 0 && capture_hold != u8::MAX {
+            if report_hold && (CAPTURE_SAMPLES..REPORT_SAMPLES).contains(&capture_hold) {
+                screenshot::request(screenshot::Kind::Screen);
+            }
+            capture_hold = u8::MAX;
+        }
+        if capture_hold != 0 {
+            navigation.consume_arrows();
+            raw &= !CAPTURE_ARROWS;
+        }
+        if arrows == 0 {
+            capture_hold = 0;
+        }
         // The arrows follow the screen: turned over, the viewer's left button
         // is the Right one.
         if screen_orientation(rotation, sensed_rotation) == Orientation::Inverted {
@@ -1121,6 +1170,9 @@ async fn meter_task(
     let mut last_pulse = None;
     let detail_sender = DETAIL_VIEW.sender();
     let mut frame_time = WindowPeak::new(&FRAME_MS);
+    let mut frame_shown = None;
+    let mut capture_status = screenshot::Status::Idle;
+    let mut capture_notice = None;
 
     // Without this build's upper region the pages would call the PD stack's
     // missing code: show only the notice.
@@ -1138,6 +1190,27 @@ async fn meter_task(
 
     loop {
         let now = Instant::now();
+        let report_requested = match screenshot::take_request() {
+            Some(screenshot::Kind::Report) => true,
+            Some(screenshot::Kind::Screen) => {
+                // SAFETY: this task owns the idle framebuffer and defers drawing
+                // while the save task borrows it.
+                unsafe { screenshot::capture_screen(frame_shown) };
+                false
+            }
+            None => false,
+        };
+        let status = screenshot::status();
+        if capture_status != status {
+            capture_status = status;
+            capture_notice = Some(now + embassy_time::Duration::from_secs(2));
+            dirty = true;
+        } else if status != screenshot::Status::Saving
+            && capture_notice.is_some_and(|deadline| now >= deadline)
+        {
+            capture_notice = None;
+            dirty = true;
+        }
         #[cfg(feature = "cable-log")]
         {
             stall::BEAT.fetch_add(1, Ordering::Relaxed);
@@ -1381,13 +1454,17 @@ async fn meter_task(
             dirty |= view == View::Overview;
         }
 
-        if dirty || changed {
+        let report_requested = report_requested && matches!(view, View::Detail { .. });
+        if (dirty || changed || report_requested)
+            && screenshot::status() != screenshot::Status::Saving
+        {
             dirty = false;
             // SAFETY: this task is the sole framebuffer owner.
             let frame = unsafe { &mut *(fb as *mut Frame) };
             let mut tabs = [Tab::default(); MAX_TABS];
             let header = header(page, input.passthrough, &mut tabs);
             render::clear(frame);
+            let mut staged_report = None;
             match view {
                 View::Overview => {
                     let observation = latest_observation();
@@ -1607,14 +1684,15 @@ async fn meter_task(
                     top,
                     scrolling,
                 } => {
+                    let report_version =
+                        report_requested.then(|| CABLE_SVID_VERSION.load(Ordering::Relaxed));
                     let observation = detail_observation(last_raw_v, input.settings.calibration);
-                    let canvas = &mut Canvas(frame);
-                    let view = match detail {
-                        Detail::Pd => ui::draw_detail(
-                            canvas,
+                    let presented = match detail {
+                        Detail::Pd => present_detail(
+                            frame,
                             &header,
                             detail,
-                            core::iter::once(pd::lines(observation))
+                            &mut core::iter::once(pd::lines(observation))
                                 .chain(pd::startup_lines(observation))
                                 .chain(pd::caps_lines(observation))
                                 .map(pd::widen)
@@ -1624,6 +1702,7 @@ async fn meter_task(
                                 ),
                             top,
                             scrolling,
+                            report_version,
                         ),
                         Detail::Charger => {
                             // The PD offer, Quick Charge, then the rest of
@@ -1653,70 +1732,65 @@ async fn meter_task(
                             let scp_section = offer + qc_sections;
                             let fcp_section = scp_section + 1;
                             let afc_section = fcp_section + 1;
-                            ui::draw_detail(
-                                canvas,
+                            present_detail(
+                                frame,
                                 &header,
                                 detail,
-                                (0..partner + qc_sections + 3).map(|section| {
-                                    if section < offer {
-                                        pd::partner_lines(observation, section)
-                                    } else if section < scp_section {
-                                        ui::qc_charger_lines(qc, mode, section - offer)
-                                    } else if section == scp_section {
-                                        ui::scp_charger_lines(
-                                            scp,
-                                            scp_status
-                                                .filter(|(attempt, _)| {
-                                                    *attempt == input.scp_attempt
-                                                })
-                                                .map(|(_, status)| status),
-                                        )
-                                    } else if section == fcp_section {
-                                        ui::fcp_charger_lines(
-                                            fcp,
-                                            input.fcp_adapter,
-                                            fcp_status
-                                                .filter(|(attempt, _)| {
-                                                    *attempt == input.fcp_attempt
-                                                })
-                                                .map(|(_, status)| status),
-                                        )
-                                    } else if section == afc_section {
-                                        ui::afc_charger_lines(
-                                            afc,
-                                            afc_status
-                                                .filter(|(attempt, _)| {
-                                                    *attempt == input.afc_attempt
-                                                })
-                                                .map(|(_, status)| status),
-                                        )
-                                    } else {
-                                        pd::partner_lines(observation, section - qc_sections - 3)
-                                    }
-                                }),
+                                &mut (0..partner + qc_sections + 3)
+                                    .map(|section| {
+                                        if section < offer {
+                                            pd::partner_lines(observation, section)
+                                        } else if section < scp_section {
+                                            ui::qc_charger_lines(qc, mode, section - offer)
+                                        } else if section == scp_section {
+                                            ui::scp_charger_lines(
+                                                scp,
+                                                scp_status
+                                                    .filter(|(attempt, _)| {
+                                                        *attempt == input.scp_attempt
+                                                    })
+                                                    .map(|(_, status)| status),
+                                            )
+                                        } else if section == fcp_section {
+                                            ui::fcp_charger_lines(
+                                                fcp,
+                                                input.fcp_adapter,
+                                                fcp_status
+                                                    .filter(|(attempt, _)| {
+                                                        *attempt == input.fcp_attempt
+                                                    })
+                                                    .map(|(_, status)| status),
+                                            )
+                                        } else if section == afc_section {
+                                            ui::afc_charger_lines(
+                                                afc,
+                                                afc_status
+                                                    .filter(|(attempt, _)| {
+                                                        *attempt == input.afc_attempt
+                                                    })
+                                                    .map(|(_, status)| status),
+                                            )
+                                        } else {
+                                            pd::partner_lines(
+                                                observation,
+                                                section - qc_sections - 3,
+                                            )
+                                        }
+                                    })
+                                    .map(pd::widen),
                                 top,
                                 scrolling,
+                                report_version,
                             )
                         }
-                        Detail::Cable => ui::draw_detail(
-                            canvas,
+                        Detail::Cable => present_detail(
+                            frame,
                             &header,
                             detail,
-                            (0..pd::cable_sections(observation)).map(|section| {
-                                let svid =
-                                    pd::cable_svid_index(observation, section).and_then(|index| {
-                                        firmware_core::pd_svids::Store::at(&CABLE_SVID_STORE, index)
-                                    });
-                                pd::cable_lines(
-                                    observation,
-                                    section,
-                                    svid,
-                                    &CABLE_SVID_STORE,
-                                    CABLE_ASKED.load(Ordering::Relaxed),
-                                )
-                            }),
+                            &mut cable_rows(observation),
                             top,
                             scrolling,
+                            report_version,
                         ),
                         Detail::System => {
                             let (stack_peak, stack_size) = stack_use();
@@ -1743,21 +1817,58 @@ async fn meter_task(
                             .chain([storage_diag::lines()]);
                             #[cfg(feature = "flash-probe")]
                             let sections = sections.chain([flash_probe::lines()]);
-                            ui::draw_detail(canvas, &header, detail, sections, top, scrolling)
+                            #[cfg(feature = "capture-probe")]
+                            let sections =
+                                sections.chain(core::iter::once_with(screenshot::probe_lines));
+                            present_detail(
+                                frame,
+                                &header,
+                                detail,
+                                &mut sections.map(pd::widen),
+                                top,
+                                scrolling,
+                                report_version,
+                            )
                         }
                     };
-                    detail_sender.send_if_modified(|current| {
-                        let changed = *current != Some((detail, view));
-                        *current = Some((detail, view));
-                        changed
-                    });
+                    match presented {
+                        PresentedDetail::Screen(view) => {
+                            detail_sender.send_if_modified(|current| {
+                                let changed = *current != Some((detail, view));
+                                *current = Some((detail, view));
+                                changed
+                            });
+                        }
+                        PresentedDetail::Report(result) => staged_report = Some(result),
+                    }
                 }
             }
-            let frame_start = Instant::now();
-            unsafe {
-                panel::flush(fb, current_rotation).await;
+            if let Some(result) = staged_report {
+                // The staged bytes replaced part of the framebuffer, which
+                // will be redrawn after the save. Leave the panel untouched.
+                frame_shown = None;
+                dirty = true;
+                // SAFETY: no rendering or panel transfer borrows the idle frame.
+                unsafe { screenshot::capture_report(result) };
+            } else {
+                if capture_notice.is_some() {
+                    use screenshot::Status;
+                    let message = match capture_status {
+                        Status::Saved => "CAPTURE SAVED",
+                        Status::ReportSaved => "FULL PAGE BMP SAVED",
+                        Status::Failed => "CAPTURE FAILED",
+                        Status::Full => "CAPTURE FULL - COPY/CLEAR",
+                        Status::Unavailable => "CAPTURE NO SPACE",
+                        Status::TooLarge => "CAPTURE TOO LARGE",
+                        Status::Saving | Status::Idle => "",
+                    };
+                    ui::draw_capture_status(&mut Canvas(frame), message);
+                }
+                let frame_start = Instant::now();
+                frame_shown = unsafe { panel::flush(fb, current_rotation).await }
+                    .then(|| firmware_core::screenshot::CapturePage::from_page(page));
+                frame_time.add(Instant::now(), frame_start.elapsed().as_millis() as u32);
             }
-            frame_time.add(Instant::now(), frame_start.elapsed().as_millis() as u32);
         }
 
         Timer::after_millis(METER_TICK_MS).await;
@@ -1768,6 +1879,136 @@ async fn meter_task(
 /// Func_Grp2 (HC32 Datasheet Tables 2-1 and 2-2).
 const I2C3_SDA: u8 = 48;
 const I2C3_SCL: u8 = 49;
+
+const CAPTURE_ARROWS: u8 = button_logic::LEFT | button_logic::RIGHT;
+const CLEAR_CHORD: u8 = CAPTURE_ARROWS | button_logic::BACK;
+#[cfg(feature = "capture-reclaim")]
+const RECLAIM_CHORD: u8 = CAPTURE_ARROWS | button_logic::OK;
+
+enum PresentedDetail {
+    Screen(ui::ListView),
+    Report(Result<usize, screenshot::Status>),
+}
+
+// A single rendering and staging path for all four lists keeps their
+// content and layout in sync and avoids specializing both for each iterator.
+#[inline(never)]
+fn present_detail(
+    frame: &mut Frame,
+    header: &ui::Header<'_>,
+    detail: Detail,
+    sections: &mut dyn Iterator<Item = [[u8; ui::WIDE_COLUMNS]; 8]>,
+    top: u16,
+    scrolling: bool,
+    report_version: Option<u32>,
+) -> PresentedDetail {
+    if let Some(version) = report_version {
+        ui::draw_header(&mut Canvas(frame), header);
+        let size = screenshot::stage_report(frame, detail, sections);
+        let result =
+            if detail == Detail::Cable && version != CABLE_SVID_VERSION.load(Ordering::Relaxed) {
+                Err(screenshot::Status::Failed)
+            } else {
+                size.ok_or(screenshot::Status::TooLarge)
+            };
+        PresentedDetail::Report(result)
+    } else {
+        PresentedDetail::Screen(ui::draw_detail(
+            &mut Canvas(frame),
+            header,
+            detail,
+            sections,
+            top,
+            scrolling,
+        ))
+    }
+}
+
+fn cable_rows(observation: pd::Observation) -> impl Iterator<Item = [[u8; ui::WIDE_COLUMNS]; 8]> {
+    let asked = CABLE_ASKED.load(Ordering::Relaxed);
+    (0..pd::cable_sections(observation)).map(move |section| {
+        let svid = pd::cable_svid_index(observation, section)
+            .and_then(|index| firmware_core::pd_svids::Store::at(&CABLE_SVID_STORE, index));
+        pd::cable_lines(observation, section, svid, &CABLE_SVID_STORE, asked)
+    })
+}
+
+fn button_mask(inputs: &[InputPin; 4]) -> u8 {
+    inputs.iter().enumerate().fold(0, |mask, (index, pin)| {
+        mask | (u8::from(pin.is_low()) << index)
+    })
+}
+
+async fn usb_voltage() -> bool {
+    read_meter(ina226::BUS_VOLTAGE)
+        .await
+        .map(ina226::bus_millivolts)
+        .is_some_and(|mv| (4400..=5500).contains(&mv))
+}
+
+/// The clear boot has exclusive use of the panel and has not started USB or PD.
+async fn clear_screenshots(inputs: &[InputPin; 4], reclaim: bool) {
+    let fb = framebuffer();
+    let frame = unsafe { &mut *fb.cast::<Frame>() };
+    render::clear(frame);
+    ui::draw_capture_clear(
+        &mut Canvas(frame),
+        if reclaim {
+            "RECLAIM 5 SECTORS?"
+        } else {
+            "ERASE ALL CAPTURES?"
+        },
+        "Hold OK 2s   BACK cancels",
+    );
+    if !unsafe { panel::flush(fb, Orientation::Normal).await } {
+        return;
+    }
+
+    let interval = u64::from(button_logic::POLL_MS);
+    while button_mask(inputs) != 0 {
+        Timer::after_millis(interval).await;
+    }
+    let mut held = None;
+    let confirm = loop {
+        match button_mask(inputs) {
+            button_logic::BACK => break false,
+            button_logic::OK => {
+                if held.get_or_insert_with(Instant::now).elapsed().as_millis() >= 2_000 {
+                    break true;
+                }
+            }
+            _ => held = None,
+        }
+        Timer::after_millis(interval).await;
+    };
+    let title = if !confirm {
+        "CLEAR CANCELLED"
+    } else if !usb_voltage().await {
+        "USB NEEDS 5V"
+    } else {
+        #[cfg(feature = "capture-reclaim")]
+        let result = if reclaim {
+            // SAFETY: the panel prompt, fresh OK hold and second 5 V check
+            // succeeded, and measurement and USB tasks are still stopped.
+            Some(unsafe { capture_reclaim::erase_backed_up() })
+        } else {
+            None
+        };
+        #[cfg(not(feature = "capture-reclaim"))]
+        let result: Option<&str> = None;
+        result.unwrap_or_else(|| {
+            if unsafe { screenshot::clear_owned() } {
+                "CAPTURES CLEARED"
+            } else {
+                "CLEAR FAILED"
+            }
+        })
+    };
+    let frame = unsafe { &mut *fb.cast::<Frame>() };
+    render::clear(frame);
+    ui::draw_capture_clear(&mut Canvas(frame), title, "unplug to restart");
+    unsafe { panel::flush(fb, Orientation::Normal).await };
+}
 
 /// SRAM wait control, wait protection and check protection registers (RM 8.2).
 const SRAM_WTCR: *mut u16 = 0x4005_0800 as *mut u16;
@@ -1832,11 +2073,28 @@ async fn main(spawner: Spawner) {
     unsafe {
         cortex_m::interrupt::enable();
     }
+    let button_inputs = unsafe {
+        // Release JTAG only and retain SWD. The same button owners are passed
+        // to the normal input task after checking the power-on chord.
+        gpio::release_jtag();
+        [
+            InputPin::new_pull_up(Port::B, 2),
+            InputPin::new_pull_up(Port::B, 10),
+            InputPin::new_pull_up(Port::H, 0),
+            InputPin::new_pull_up(Port::C, 14),
+        ]
+    };
+    let boot_buttons = button_mask(&button_inputs);
     // Checked before any task: the PD stack's code lives in the upper region.
     let upper_installed = upper::installed();
+    #[cfg(feature = "capture-reclaim")]
+    let reclaim = capture_reclaim::ENABLED && upper_installed && boot_buttons == RECLAIM_CHORD;
+    #[cfg(not(feature = "capture-reclaim"))]
+    let reclaim = false;
+    let capture_boot = reclaim || matches!(boot_buttons, CAPTURE_ARROWS | CLEAR_CHORD);
     // Migrate only legacy logs in the energy pair before any bus, display DMA
     // or protocol task starts. No blanket cleanup of other occupied sectors.
-    let (energy_store, energy_save_status) = if upper_installed {
+    let (energy_store, energy_save_status) = if upper_installed && !capture_boot {
         energy_store::open()
     } else {
         (None, energy_store::Status::Occupied)
@@ -1875,7 +2133,7 @@ async fn main(spawner: Spawner) {
         settings.afc_findings = None;
     }
     settings.finish_boot();
-    let cleared = store.save(settings);
+    let cleared = !capture_boot && store.save(settings);
     SETTINGS_SAVE.sender().send(store.status());
     // The cable test runs only on a boot after a power-up (the restart's power
     // cycle), with its request verifiably cleared first. A reset during that
@@ -1895,19 +2153,10 @@ async fn main(spawner: Spawner) {
     let line_adc;
     let mut ripple_adc;
     let qc_trigger;
-    let button_inputs;
     let tilt_input;
     let pd_input;
     let pc13_input;
     unsafe {
-        // Release JTAG only; retain SWD. Move each input owner into its task.
-        gpio::release_jtag();
-        button_inputs = [
-            InputPin::new_pull_up(Port::B, 2),
-            InputPin::new_pull_up(Port::B, 10),
-            InputPin::new_pull_up(Port::H, 0),
-            InputPin::new_pull_up(Port::C, 14),
-        ];
         tilt_input = InputPin::new_pull_up(Port::B, 13);
         // PC13 input + pull-up, no INTE, as the original firmware configures it.
         // Read-only slider sense (the original shows "Switch To Sink Mode" while
@@ -2014,6 +2263,49 @@ async fn main(spawner: Spawner) {
                 break;
             }
         }
+        if capture_boot {
+            // Wait for the INA226's first 64-sample VBUS/shunt average. Export
+            // cannot attach its PHY on an unknown or negotiated high VBUS.
+            Timer::after_millis(160).await;
+            let at_usb_voltage = usb_voltage().await;
+            let (_pwm, backlight_pin) = backlight;
+            let panel_ready = panel::init(backlight_pin).await;
+            if at_usb_voltage && (reclaim || boot_buttons == CLEAR_CHORD) {
+                if panel_ready {
+                    clear_screenshots(&button_inputs, reclaim).await;
+                }
+            } else {
+                if panel_ready {
+                    let fb = framebuffer();
+                    let frame = &mut *fb.cast::<Frame>();
+                    render::clear(frame);
+                    let count = if at_usb_voltage {
+                        screenshot::export_count()
+                    } else {
+                        0
+                    };
+                    ui::draw_usb_export(&mut Canvas(frame), at_usb_voltage, count);
+                    panel::flush(fb, Orientation::Normal).await;
+                }
+                if at_usb_voltage {
+                    // The panel transfer is complete. The disk can use SRAM2
+                    // to expand one picture at a time for USB block reads.
+                    // Build the record table after the await so it stays off the main task's static storage.
+                    let records = screenshot::export_records();
+                    let disk = Disk::new(
+                        &records,
+                        &mut *framebuffer().cast(),
+                        ui::draw_report_capture_row,
+                    );
+                    #[cfg(feature = "capture-backup")]
+                    let disk = disk.with_flash_snapshot(screenshot::export_flash_snapshot());
+                    usb_export::run(clocks.hclk, disk);
+                }
+            }
+            loop {
+                Timer::after_secs(1).await;
+            }
+        }
         for (reg, value) in lis3dh::INIT {
             if !write_sensor(reg, value).await {
                 break;
@@ -2065,5 +2357,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(tilt_task(tilt_input).expect(ONE_SPAWN));
     spawner.spawn(line_task(line_adc, qc_trigger).expect(ONE_SPAWN));
     spawner.spawn(ripple::run(ripple_adc, clocks.pclk[2]).expect(ONE_SPAWN));
+    spawner.spawn(screenshot::save_task().expect(ONE_SPAWN));
     spawner.spawn(button_task(button_inputs, store, settings, requested, resume).expect(ONE_SPAWN));
 }

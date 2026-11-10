@@ -289,18 +289,19 @@ erase range `[0x10000, 0x44000)`. Bootloader and settings regions remain outside
 that range. The generated layout passed batch checks and final bootloader
 verification on Linux.
 
-The PD stack, protocol crates and FFT tables run from upper flash,
-`[0x44000, 0x6c000)`, outside the update erase range. A release's application
-is the unpacker followed by two Thumb-filtered LZMA2 streams: the upper
-region's and the main firmware's. On its first boot the
-unpacker runs entirely from RAM with interrupts disabled. It inflates both
-streams and checks their lengths and hashes before writing anything, then
-programs the upper region, then the main firmware over itself, and resets.
-Writes are fenced to `[0x44000, 0x6c000)` and the application erase range; a
-sector that already holds its bytes is skipped, and one is erased only when a
-word is neither wanted nor blank. A main firmware sector is erased only when it
-lies wholly below the stream bytes still to be read; `firmware-pack` replays
-the same unpacking to prove this before it packs. The backlight is lit while it
+The PD stack and FFT tables run from upper flash, `[0x44000, 0x62000)`,
+outside the stock bootloader's erase range. The unpacker runs from RAM with
+interrupts disabled. In a two-stage release, the first container checks and
+installs the upper stream, then waits. The second verifies the installed upper
+region against the same build, checks the main stream, writes the main firmware
+over itself and resets. A complete container, when it fits, checks both streams
+before writing either region. Writes are fenced to the upper and application
+ranges. A sector that already holds its bytes is skipped, and one is erased only when a
+word is neither wanted nor blank. Main firmware sectors are erased only when
+they hold no unread stream bytes. The final sector is written after the stream
+ends, and any bytes past the new application's end are read into the output
+buffer and preserved across its erase. `firmware-pack` replays the same
+unpacking to check the erase order. The backlight is lit while it
 works and blinks on a failed check or write. Device data at `0x6e000` and
 above is never touched. Power loss during the upper writes is resumed on the
 next boot; power loss during the main writes leaves the application unusable
@@ -308,6 +309,49 @@ until the release is flashed again from bootloader mode. Startup hashes the
 upper region against the main firmware's record before anything calls into it,
 and shows a missing-code screen rather than running a mismatched region. This result does not qualify every build's runtime
 behavior. Image framing and matching hashes do not authorize flashing.
+
+Screen capture appends losslessly compressed images within owned sectors in
+`[0x62000, 0x6e000)`. It can also claim up to two blank settings/log sectors,
+leaving at least one spare blank at claim time. The energy pair is excluded.
+The first record in each sector keeps the previous format's ownership and
+commit layout. Captures are kept until the available space fills. The first build's
+three-sector records and later single-record sectors remain readable.
+
+The save task borrows the displayed frame while redraws pause. It programs
+blank words in eight-word batches, releasing the I2C lease between batches.
+Each append reserves a length and its complement before writing data. The
+commit word is written last. Export checks the sequence and CRC of each
+record. A fully reserved but incomplete append can be skipped. If the length
+word is torn, the sector remains readable up to that entry and further
+appends go elsewhere. Unknown contents block allocation and are left intact.
+
+USB export checks for nominal 5 V and starts before any PD or charging protocol
+task. It reads all complete captures in sequence order and leaves their flash
+sectors intact. The read-only FAT12 volume uses the unused frame buffer to
+expand a screenshot or render a detail report in strips. SCSI writes are
+rejected. PD, Charger, Cable and System reports use the same data sources
+as their LCD lists. The display task stages the header and printable rows
+in the idle frame buffer and yields it to the capture task until the save
+finishes. If the SVID store changes while staging a Cable report, the save
+fails before writing.
+
+The separate clear boot uses Left + Right + Back, before USB, measurement or
+PD tasks start. It requires a successfully displayed prompt, release of the
+startup chord, a new two-second OK hold and a nominal 5 V reading before it
+erases any capture-owned sector. Back cancels after the startup chord is
+released. Clear covers complete and incomplete captures, stops on the first
+erase or read-back error, and preserves sectors without capture ownership.
+
+The opt-in `capture-reclaim` build uses a separate capture boot after the
+standard firmware installation. With the five backup-derived SHA-256 digests
+present, Left + Right + OK on USB connection selects the LCD prompt at nominal
+5 V. After releasing the startup chord, a fresh two-second OK hold confirms;
+Back cancels. Reconnect without buttons to return to measurement. Before any
+erase it runs the HASH self-test, excludes
+capture-owned sectors, and checks every nonblank sector in
+`[0x62000, 0x6c000)` against its own digest. Blank sectors are skipped and each
+matching sector is read back after erase. The existing capture sector at
+`0x6c000`, factory data and settings are outside the erase range.
 
 Normal firmware saves settings (brightness, rotation, energy-memory interval)
 and does not program the diagnostic log. Settings and logs use the same
@@ -411,7 +455,7 @@ length, zero fill, descriptor, checksum, marker and zero trailer/alignment.
 The generated erase envelope is checked against the application ceiling.
 These checks do not establish bootloader acceptance or runtime safety.
 
-The Rust `flasher` is the sole host tool that accesses the device. It checks the
+The Rust `flasher` handles firmware uploads. It checks the
 exact candidate hash, container framing/checksum and erase ceiling before
 discovering hardware, and keeps the validated payload in memory rather than
 rereading the image after approval. It has no hash deny list, accepts stock/custom

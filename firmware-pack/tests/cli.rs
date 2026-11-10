@@ -264,11 +264,71 @@ fn thumb_bl_filtered_stream_inflates_exact_sectors_across_sliding_window() -> Re
     let mut window = [0u8; WINDOW_BYTES];
     let mut inflated = Vec::with_capacity(expected.len());
     let total = inflate_sectors(&packed, &mut window, |chunk| {
-        inflated.extend_from_slice(chunk.bytes);
+        inflated.extend_from_slice(chunk.bytes());
         true
     })
     .map_err(|error| anyhow::anyhow!("Inflate failed: {error:?}"))?;
     assert_eq!(total, expected.len());
     assert_eq!(inflated, expected);
+    Ok(())
+}
+
+#[test]
+fn final_sector_waits_for_stream_end_and_preserves_unwritten_tail() -> Result<()> {
+    use firmware_image::packed::{
+        CHUNK_BYTES, DICT_BYTES, PACKED_MAGIC, Packed, Stream, WINDOW_BYTES, inflate_sectors,
+        main_erase_margin,
+    };
+    use firmware_image::{APP_BASE, APP_LIMIT, ERASE_CEILING};
+    use std::io::Write;
+
+    let last = (ERASE_CEILING - APP_BASE) as usize - CHUNK_BYTES;
+    let tail_start = 512;
+    let expected = vec![0x31; last + tail_start];
+    let mut compressed = Vec::new();
+    let mut options = lzma_rust2::Lzma2Options::with_preset(6);
+    options.lzma_options.dict_size = DICT_BYTES;
+    let mut writer = lzma_rust2::Lzma2Writer::new(&mut compressed, options);
+    writer.write_all(&expected)?;
+    writer.finish()?;
+    let record = Packed {
+        magic: PACKED_MAGIC,
+        data: APP_BASE + (APP_LIMIT - compressed.len()) as u32,
+        upper: Stream {
+            len: 0,
+            hash: 0,
+            packed: 0,
+        },
+        main: Stream {
+            len: expected.len() as u32,
+            hash: 0,
+            packed: compressed.len() as u32,
+        },
+    };
+    assert_eq!(main_erase_margin(&record, last, compressed.len() - 1), None);
+    let mut window = [0; WINDOW_BYTES];
+    let mut final_written = false;
+    let total = inflate_sectors(&compressed, &mut window, |mut chunk| {
+        assert!(main_erase_margin(&record, chunk.offset, chunk.consumed).is_some());
+        assert_eq!(
+            chunk.bytes(),
+            &expected[chunk.offset..chunk.offset + chunk.bytes().len()]
+        );
+        if chunk.offset == last {
+            assert_eq!(chunk.consumed, compressed.len());
+            let word = |offset| 0x5ad0_0000 | offset as u32;
+            let sector = chunk.preserve_tail(word).unwrap();
+            assert_eq!(sector.len(), CHUNK_BYTES);
+            assert_eq!(&sector[..tail_start], &expected[last..]);
+            for (index, bytes) in sector[tail_start..].as_chunks::<4>().0.iter().enumerate() {
+                assert_eq!(*bytes, word(tail_start + index * 4).to_le_bytes());
+            }
+            final_written = true;
+        }
+        true
+    })
+    .map_err(|error| anyhow::anyhow!("Inflate failed: {error:?}"))?;
+    assert_eq!(total, expected.len());
+    assert!(final_written);
     Ok(())
 }

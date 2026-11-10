@@ -1066,6 +1066,10 @@ impl Navigation {
         navigation
     }
 
+    pub fn page(&self) -> Page {
+        self.input.page
+    }
+
     /// Whether a sink session runs. Without one (passthrough, no charger) the
     /// PD and PPS pages only show the offer, and an open selection closes.
     pub fn set_selectable(&mut self, selectable: bool) {
@@ -1325,6 +1329,14 @@ impl Navigation {
     /// The meter's averaged raw reading; `None` while it is not read.
     pub fn set_mean(&mut self, mean: Option<Mean>) {
         self.mean = mean;
+    }
+
+    /// A reserved chord consumed the arrow presses and their releases.
+    pub fn consume_arrows(&mut self) {
+        self.debounce.stable &= !(LEFT | RIGHT);
+        self.debounce.counters[..2].fill(0);
+        self.held = 0;
+        self.repeated = false;
     }
 
     /// Feed one sample; returns the input state and any PD session request.

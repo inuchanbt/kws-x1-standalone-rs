@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, ensure};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use firmware_image::{
     self as image, APP_BASE, APP_LIMIT, CONTAINER_PREFIX, ERASE_CEILING, EXTENDED_PAYLOAD_LEN,
     SECTOR_BYTES, UPPER_BASE, UPPER_END, UPPER_ID_MAGIC, UPPER_ID_UNSET,
@@ -62,6 +62,8 @@ enum Command {
         source: Source,
         #[arg(long)]
         out: PathBuf,
+        #[arg(long, value_enum, default_value_t = Stage::Complete, requires = "firmware")]
+        stage: Stage,
     },
     /// Audit the exact hash-confirmed container against what it was built from.
     Audit {
@@ -71,7 +73,19 @@ enum Command {
         image: PathBuf,
         #[arg(long)]
         confirm_sha256: String,
+        #[arg(long, value_enum, default_value_t = Stage::Complete, requires = "firmware")]
+        stage: Stage,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum Stage {
+    /// The upper region and main firmware in one image, if they fit.
+    Complete,
+    /// Install the upper region and wait for the second image.
+    Upper,
+    /// Check the preinstalled upper region, then install the main firmware.
+    Main,
 }
 
 /// What the container holds: a plain application image, or a release
@@ -276,7 +290,7 @@ fn rehearse(packed: &[u8], expected: &[u8], record: Option<&Packed>) -> Result<u
     let window: &mut [u8; WINDOW_BYTES] = window.as_mut_slice().try_into()?;
     let (mut inflated, mut margin) = (Vec::with_capacity(expected.len()), usize::MAX);
     inflate_sectors(packed, window, |chunk| {
-        inflated.extend_from_slice(chunk.bytes);
+        inflated.extend_from_slice(chunk.bytes());
         match record {
             None => true,
             Some(record) => main_erase_margin(record, chunk.offset, chunk.consumed)
@@ -309,7 +323,11 @@ fn whole_words(mut bytes: Vec<u8>) -> Vec<u8> {
 
 /// A release's application image: the unpacker, its record filled in, then
 /// the upper and main streams. Returns it with the main firmware's checks.
-fn release(firmware: &[u8], unpacker: &[u8]) -> Result<(Vec<u8>, Application, Release)> {
+fn release(
+    firmware: &[u8],
+    unpacker: &[u8],
+    stage: Stage,
+) -> Result<(Vec<u8>, Application, Release)> {
     let (main, upper) = split(firmware).context("Splitting the firmware")?;
     let (mut main, upper) = (whole_words(main), whole_words(upper));
     ensure!(!upper.is_empty(), "The firmware has no upper region");
@@ -331,12 +349,38 @@ fn release(firmware: &[u8], unpacker: &[u8]) -> Result<(Vec<u8>, Application, Re
     );
     let unpacker_bytes = content.len();
     check_unpacker(&content)?;
-    let (upper_packed, main_packed) = (deflate(&upper)?, deflate(&main)?);
+    let upper_packed = if stage == Stage::Main {
+        Vec::new()
+    } else {
+        deflate(&upper)?
+    };
+    let main_packed = if stage == Stage::Upper {
+        Vec::new()
+    } else {
+        deflate(&main)?
+    };
+    // With no preceding upper stream, move the main stream up in flash so
+    // the unpacker can safely overwrite the earlier application sectors.
+    let stream_start = if stage == Stage::Main {
+        APP_LIMIT
+            .checked_sub(main_packed.len())
+            .context("The main stream exceeds the application space")?
+            & !3
+    } else {
+        unpacker_bytes.next_multiple_of(size_of::<u32>())
+    };
+    ensure!(
+        stream_start >= unpacker_bytes,
+        "The compressed stream overlaps the unpacker"
+    );
     let record = Packed {
         magic: PACKED_MAGIC,
-        data: APP_BASE + u32::try_from(unpacker_bytes.next_multiple_of(size_of::<u32>()))?,
+        data: APP_BASE + u32::try_from(stream_start)?,
         upper: stream(&upper, &upper_packed)?,
-        main: stream(&main, &main_packed)?,
+        main: stream(
+            if stage == Stage::Upper { &[] } else { &main },
+            &main_packed,
+        )?,
     };
     let fields = [
         record.data,
@@ -356,11 +400,17 @@ fn release(firmware: &[u8], unpacker: &[u8]) -> Result<(Vec<u8>, Application, Re
     content.extend_from_slice(&main_packed);
     ensure!(
         content.len() <= APP_LIMIT,
-        "The release exceeds the application space by {} bytes",
+        "The release exceeds the application space by {} bytes. Pack --stage upper and --stage main from the same build",
         content.len() - APP_LIMIT
     );
-    rehearse(&upper_packed, &upper, None)?;
-    let erase_margin_bytes = rehearse(&main_packed, &main, Some(&record))?;
+    if stage != Stage::Main {
+        rehearse(&upper_packed, &upper, None)?;
+    }
+    let erase_margin_bytes = if stage == Stage::Upper {
+        0
+    } else {
+        rehearse(&main_packed, &main, Some(&record))?
+    };
     let release = Release {
         unpacker_bytes,
         main_bytes: main.len(),
@@ -395,7 +445,7 @@ fn check_unpacker(unpacker: &[u8]) -> Result<()> {
 }
 
 /// The container for `source`, with its report.
-fn prepare(source: &Source) -> Result<(Vec<u8>, Report)> {
+fn prepare(source: &Source, stage: Stage) -> Result<(Vec<u8>, Report)> {
     let (content, application, release) = match source {
         Source { app: Some(app), .. } => {
             let mut app = fs::read(app).context("Reading application")?;
@@ -418,7 +468,7 @@ fn prepare(source: &Source) -> Result<(Vec<u8>, Report)> {
         } => {
             let firmware = fs::read(firmware).context("Reading firmware ELF")?;
             let unpacker = fs::read(unpacker).context("Reading unpacker ELF")?;
-            let (content, application, release) = release(&firmware, &unpacker)?;
+            let (content, application, release) = release(&firmware, &unpacker, stage)?;
             (content, application, Some(release))
         }
         _ => anyhow::bail!("Pass --app, or --firmware with --unpacker"),
@@ -466,8 +516,8 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
 
 fn run(args: Args) -> Result<()> {
     let report = match args.command {
-        Command::Pack { source, out } => {
-            let (container, mut report) = prepare(&source)?;
+        Command::Pack { source, out, stage } => {
+            let (container, mut report) = prepare(&source, stage)?;
             write_new(&out, &container)?;
             report.candidate = Some(out);
             report
@@ -476,6 +526,7 @@ fn run(args: Args) -> Result<()> {
             source,
             image,
             confirm_sha256,
+            stage,
         } => {
             let candidate = fs::read(image).context("Reading image")?;
             let actual = digest(&candidate);
@@ -483,7 +534,7 @@ fn run(args: Args) -> Result<()> {
                 actual == confirm_sha256,
                 "Image SHA-256 is {actual}, not the confirmed {confirm_sha256}"
             );
-            let (expected, mut report) = prepare(&source)?;
+            let (expected, mut report) = prepare(&source, stage)?;
             image::verify_container(&candidate)
                 .map_err(|error| anyhow::anyhow!("Invalid container: {error:?}"))?;
             ensure!(

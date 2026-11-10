@@ -4,6 +4,7 @@
 //! The renderer gathers the values; nothing here touches hardware.
 
 use embedded_graphics::pixelcolor::Rgb565;
+use embedded_graphics::pixelcolor::raw::RawU16;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::{
     Circle, Line, PrimitiveStyle, Rectangle, RoundedRectangle, StyledDrawable, Triangle,
@@ -16,6 +17,7 @@ use firmware_core::calibration::{Calibration, Quantity, Step, Wizard};
 use firmware_core::dcp::Dcp;
 use firmware_core::energy::Totals;
 use firmware_core::power_history::{GraphTrace, GraphWindow, History, Sample};
+use firmware_core::screenshot_report::{BAND_BYTES, HEADER_ROWS, ROW_BYTES, ROW_HEIGHT};
 use firmware_core::settings::{
     AfcFindings, BRIGHTNESS_PERCENT, EnergyMemory, FcpFindings, Item, QcFindings, Rotation,
     ScpFindings, Settings,
@@ -566,7 +568,10 @@ fn value_with_unit<D: DrawTarget<Color = Rgb565>>(
 }
 
 /// The tab strip and group dots, or the settings title, and the rule.
-fn draw_header<D: DrawTarget<Color = Rgb565>>(target: &mut D, header: &Header<'_>) {
+// Only the meter task draws a page header, after verifying the upper image.
+#[inline(never)]
+#[unsafe(link_section = ".text.meter_header")]
+pub(crate) fn draw_header<D: DrawTarget<Color = Rgb565>>(target: &mut D, header: &Header<'_>) {
     rule(target, HEADER_RULE_Y);
     let &Header::Tabs {
         tabs,
@@ -2788,6 +2793,51 @@ pub fn draw_upper_missing<D: DrawTarget<Color = Rgb565>>(target: &mut D) {
     );
 }
 
+pub fn draw_capture_status<D: DrawTarget<Color = Rgb565>>(target: &mut D, message: &str) {
+    Rectangle::new(Point::new(0, 119), Size::new(WIDTH, 16))
+        .into_styled(PrimitiveStyle::with_fill(BLACK))
+        .draw(target)
+        .ok();
+    text(
+        target,
+        &PLAIN,
+        message,
+        Point::new(LEFT, 132),
+        HorizontalAlignment::Left,
+        CYAN,
+    );
+}
+
+pub fn draw_usb_export<D: DrawTarget<Color = Rgb565>>(
+    target: &mut D,
+    at_usb_voltage: bool,
+    count: usize,
+) {
+    if at_usb_voltage {
+        if count == 0 {
+            notice(target, "USB SCREENSHOTS", "no saved screenshots", CYAN);
+        } else {
+            let mut detail = *b"000 on the KWS X1 drive";
+            detail[0] += (count / 100) as u8;
+            detail[1] += (count / 10 % 10) as u8;
+            detail[2] += (count % 10) as u8;
+            let start = usize::from(count < 100) + usize::from(count < 10);
+            let detail = core::str::from_utf8(&detail[start..]).expect("ASCII screenshot count");
+            notice(target, "USB SCREENSHOTS", detail, CYAN);
+        }
+    } else {
+        notice(target, "USB NEEDS 5V", "connect the meter to a PC", YELLOW);
+    }
+}
+
+pub fn draw_capture_clear<D: DrawTarget<Color = Rgb565>>(
+    target: &mut D,
+    title: &str,
+    detail: &str,
+) {
+    notice(target, title, detail, YELLOW);
+}
+
 fn notice<D: DrawTarget<Color = Rgb565>>(target: &mut D, title: &str, detail: &str, color: Rgb565) {
     text(
         target,
@@ -3621,6 +3671,7 @@ pub struct ListView {
 const LIST_ROWS: u16 = 8;
 const LIST_PITCH: i32 = 12;
 const LIST_BASELINE: i32 = 34;
+const _: () = assert!(LIST_PITCH as usize == ROW_HEIGHT);
 /// Scrollbar track along the right edge.
 const SCROLL_TRACK: Rectangle = Rectangle::new(Point::new(RIGHT + 1, 25), Size::new(3, 94));
 /// Shortest scrollbar thumb in pixels, so a long list still shows its position.
@@ -3687,18 +3738,12 @@ pub fn draw_detail<D: DrawTarget<Color = Rgb565>, const WIDTH: usize>(
                 view.section = section as u16;
             }
             if let Some(slot) = rows.checked_sub(top).filter(|slot| *slot < LIST_ROWS) {
-                let (x, color) = if index == 0 {
-                    (LEFT, accent)
-                } else {
-                    (LEFT + 6, WHITE)
-                };
-                text(
+                draw_detail_line(
                     target,
-                    &PLAIN,
                     content,
-                    Point::new(x, LIST_BASELINE + LIST_PITCH * i32::from(slot)),
-                    HorizontalAlignment::Left,
-                    color,
+                    LIST_BASELINE + LIST_PITCH * i32::from(slot),
+                    index == 0,
+                    accent,
                 );
             }
             rows = rows.saturating_add(1);
@@ -3740,4 +3785,80 @@ pub fn draw_detail<D: DrawTarget<Color = Rgb565>, const WIDTH: usize>(
         },
     );
     view
+}
+
+fn draw_detail_line<D: DrawTarget<Color = Rgb565>>(
+    target: &mut D,
+    line: &str,
+    baseline: i32,
+    heading: bool,
+    accent: Rgb565,
+) {
+    let (x, color) = if heading {
+        (LEFT, accent)
+    } else {
+        (LEFT + 6, WHITE)
+    };
+    text(
+        target,
+        &PLAIN,
+        line,
+        Point::new(x, baseline),
+        HorizontalAlignment::Left,
+        color,
+    );
+}
+
+pub fn report_capture_colors(detail: Detail) -> [u16; 3] {
+    let (_, accent) = tab_style(Tab::detail(detail), false);
+    [BLACK, WHITE, accent].map(|color| RawU16::from(color).into_inner())
+}
+
+/// Draw one twelve-pixel-high band with the same font and offsets as the LCD.
+pub fn draw_report_capture_row(heading: bool, line: &str, pixels: &mut [u8; BAND_BYTES]) {
+    let mut band = DetailBand {
+        pixels,
+        index: if heading { 2 } else { 1 },
+    };
+    draw_detail_line(
+        &mut band,
+        line,
+        LIST_BASELINE - HEADER_ROWS as i32,
+        heading,
+        WHITE,
+    );
+}
+
+struct DetailBand<'a> {
+    pixels: &'a mut [u8; BAND_BYTES],
+    index: u8,
+}
+
+impl OriginDimensions for DetailBand<'_> {
+    fn size(&self) -> Size {
+        Size::new(WIDTH, ROW_HEIGHT as u32)
+    }
+}
+
+impl DrawTarget for DetailBand<'_> {
+    type Color = Rgb565;
+    type Error = core::convert::Infallible;
+
+    fn draw_iter<I: IntoIterator<Item = Pixel<Rgb565>>>(
+        &mut self,
+        pixels: I,
+    ) -> Result<(), Self::Error> {
+        for Pixel(point, _) in pixels {
+            let (x, y) = (point.x as usize, point.y as usize);
+            if x < WIDTH as usize && y < ROW_HEIGHT {
+                let byte = &mut self.pixels[y * ROW_BYTES + x / 2];
+                if x.is_multiple_of(2) {
+                    *byte = (*byte & 0xf) | (self.index << 4);
+                } else {
+                    *byte = (*byte & 0xf0) | self.index;
+                }
+            }
+        }
+        Ok(())
+    }
 }

@@ -10,6 +10,9 @@ publish = false
 test = false
 bench = false
 
+[features]
+capture-backup = []
+
 [dependencies]
 fusb302-pd.workspace = true
 libm.workspace = true

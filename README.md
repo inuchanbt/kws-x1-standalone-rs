@@ -1,5 +1,7 @@
 # kws-x1-standalone-rs
 
+[日本語](README.ja.md) · [Two-stage flashing / 2段階書き込み](docs/FLASHING.md)
+
 Open Rust firmware for the **KOWSI KWS-X1** USB-C power meter. It replaces the
 meter's application and keeps the original bootloader, which flashes it over
 USB (see [Flashing](#flashing)). The meter is built around an HC32F460 MCU and
@@ -29,6 +31,7 @@ community-tested compatibility, not a guarantee for every hardware revision.
 - [Limitations](#limitations)
 - [Using the meter](#using-the-meter)
   - [Buttons](#buttons)
+  - [Screen capture](#screen-capture)
   - [Modes: sink or passthrough](#modes-sink-or-passthrough)
   - [Ways to connect](#ways-to-connect)
   - [Pages](#pages)
@@ -55,18 +58,16 @@ community-tested compatibility, not a guarantee for every hardware revision.
 
 ## Download or build
 
-You do not need to compile the firmware yourself. Download `firmware.X1C` and
-`SHA256SUMS` from a published **`firmware-v*` release**, and download the flasher
-for your OS from a **`flasher-v*` release**, both on
-[GitHub Releases](https://github.com/kralonur/kws-x1-standalone-rs/releases).
-Verify the checksums and follow [Flashing](#flashing). Downloaded firmware and
-flasher binaries need **no Rust or Python installation**.
+This fork adds on-device screenshot storage and USB export. Its two-stage
+firmware package consists of `firmware-upper.X1C`, `firmware.X1C`, and
+`SHA256SUMS`. Check [this fork's Releases](https://github.com/inuchanbt/kws-x1-standalone-rs/releases)
+for the package and use the [two-stage flashing guide](docs/FLASHING.md).
+The Windows flasher is available separately from the
+[upstream flasher release](https://github.com/kralonur/kws-x1-standalone-rs/releases/tag/flasher-v0.1.2).
 
-Prefer to compile it yourself? Follow [Build and validation](#build-and-validation)
-and [Package and audit offline](#package-and-audit-offline). If no firmware release
-is published yet, the [firmware workflow](https://github.com/kralonur/kws-x1-standalone-rs/actions/workflows/firmware.yml)
-provides build artifacts for signed-in GitHub users; these are development builds,
-not published releases.
+If no public capture binaries are available, follow [Build and validation](#build-and-validation)
+and [Package and audit offline](#package-and-audit-offline) for a local test build.
+Public binaries require a USB VID/PID assigned to this project.
 
 ## Related repositories
 
@@ -155,10 +156,9 @@ What this firmware does **not** do, for now:
 - **The 5 A cable test is non-standard**, and works only with the meter's plug
   straight in the charger. See
   [Full charger offer and 5 A without a cable](#full-charger-offer-and-5-a-without-a-cable).
-- **No logging or export.** The graph keeps ten minutes in RAM only and is
-  lost on restart; only energy totals can persist (see
-  [What is saved](#what-is-saved)). There is no USB data connection to a
-  computer or app.
+- **Measurement history stays on the meter.** The graph keeps ten minutes in
+  RAM and is lost on restart. Energy totals can persist (see
+  [What is saved](#what-is-saved)). The USB drive exports a screen image.
 - **Line voltages and ripple are not user-calibrated.** Settings calibration
   corrects bus voltage and current, not these separate ADC inputs.
   The line voltages use an internal reference of 1083 mV, the stock
@@ -222,6 +222,37 @@ lists (PD Profiles, QC 2.0, FCP, AFC) colour each voltage from cool to warm.
 
 Holding **Back** and **OK** while plugging into a computer starts the
 bootloader instead (see [Flashing](#flashing)).
+
+### Screen capture
+
+1. Hold **Left** and **Right** together for half a second while measuring.
+   Wait for `CAPTURE SAVED` before disconnecting the meter.
+2. Leave the other USB-C connector empty. Hold **Left** and **Right** while
+   connecting the meter's USB-C receptacle to a PC with a data cable.
+3. Open the read-only **KWS X1** drive and copy the numbered BMP files.
+   New screenshots include their menu name, such as `OVERVIEW01.BMP`.
+   Older screenshots without menu data keep the `SCREEN` prefix.
+   The numbers follow capture order across all menus. Unplug and reconnect
+   without holding buttons to return to measurement.
+
+The meter packs lossless 240×135 screenshots into available flash. The number
+it can keep depends on compressed sizes and space available within sectors.
+While saving, it holds the displayed frame briefly and continues measurements.
+USB export shows all complete captures and keeps them in flash.
+
+On **PD SESSION** (or **PD SNIFF**), **CHARGER**, **CABLE** or **SYSTEM**,
+hold **Left + Right** for two seconds to save all the detail rows as a tall
+BMP. It uses the LCD header, colors and font and the data available at capture
+time. Open the numbered `PD*.BMP`, `CHARGER*.BMP`, `CABLE*.BMP` or
+`SYSTEM*.BMP` on the USB drive. For a regular screenshot on these pages,
+release the buttons after half a second and before two seconds. Both kinds
+share the capture storage.
+
+If `CAPTURE FULL - COPY/CLEAR` appears, copy the images to your PC first.
+Then hold **Left + Right + Back** while reconnecting to the PC. At
+`ERASE ALL CAPTURES?`, release the buttons and hold **OK** for two seconds
+to free the capture sectors, or press **Back** to cancel. Unplug to exit.
+`CAPTURE NO SPACE` means the meter found no sector it could use.
 
 ### Modes: sink or passthrough
 
@@ -1752,7 +1783,7 @@ register map, bit fields and FIFO tokens come directly from the data sheet below
   sessions and receive-only passthrough.
 
 The firmware starts at the existing bootloader's application entry. The PD
-stack runs from upper flash (`0x44000`–`0x6c000`), which the bootloader's
+stack runs from upper flash (`0x44000`–`0x62000`), which the bootloader's
 update never writes; a release image fills it on its first boot (see
 [Package and audit offline](#package-and-audit-offline)). It does not use the
 original graphics bank and may grow into it; "standalone" does not mean
@@ -1856,36 +1887,41 @@ so diagnostic images are not interchangeable with the normal build.
 
 ### Package and audit offline
 
-Uses current stable Rust. `cargo fw` builds two programs: the `firmware` and
-the `unpacker`. `firmware-pack` packs them into one release image: the unpacker,
-followed by the upper-flash code and the main firmware, both compressed
-with LZMA2. No baseline image, template file or download is required. `pack`
-refuses existing outputs rather than overwriting them; `audit` checks an exact
-hash-confirmed image against the same two builds. Both emit JSON reports to
-stdout and never access USB hardware.
+Use current stable Rust. `cargo fw --locked` builds the `firmware` and
+`unpacker`. The screenshot-enabled release uses two images from those same
+ELFs so each fits the stock bootloader's write limit. `pack` creates new files,
+and `audit` checks them against those ELFs and the supplied SHA-256. Both
+commands run offline.
 
 ```sh
 mkdir -p build
 ELF=target/thumbv7em-none-eabihf/release
-cargo run --release -p firmware-pack --locked -- pack \
-  --firmware "$ELF/firmware" --unpacker "$ELF/unpacker" \
-  --out build/firmware.X1C > build/package.json
-IMAGE_SHA256=$(sha256sum build/firmware.X1C | cut -d ' ' -f 1)
-cargo run --release -p firmware-pack --locked -- audit \
-  --image build/firmware.X1C --confirm-sha256 "$IMAGE_SHA256" \
-  --firmware "$ELF/firmware" --unpacker "$ELF/unpacker" > build/audit.json
-cargo run --release -p flasher --locked -- \
-  --dry-run --image build/firmware.X1C --confirm-sha256 "$IMAGE_SHA256"
+for stage in upper main; do
+  name=firmware
+  if [ "$stage" = upper ]; then name=firmware-upper; fi
+  image="build/$name.X1C"
+  cargo run --release -p firmware-pack --locked -- pack --stage "$stage" \
+    --firmware "$ELF/firmware" --unpacker "$ELF/unpacker" \
+    --out "$image" > "build/$name-package.json"
+  hash=$(sha256sum "$image" | cut -d ' ' -f 1)
+  cargo run --release -p firmware-pack --locked -- audit --stage "$stage" \
+    --image "$image" --confirm-sha256 "$hash" \
+    --firmware "$ELF/firmware" --unpacker "$ELF/unpacker" > "build/$name-audit.json"
+  cargo run --release -p flasher --locked -- \
+    --dry-run --image "$image" --confirm-sha256 "$hash"
+done
 ```
 
-The bootloader only writes the 26 sectors at `0x10000`–`0x44000`, so the
-release is packed to fit there. On its first boot the unpacker runs from RAM:
-it inflates both streams and checks their lengths and hashes, writes the PD
-code to upper flash, then writes the main firmware over itself and resets into
-it. Sectors that already hold the right bytes are skipped. `pack` replays the
+The bootloader only writes the 26 sectors at `0x10000`–`0x44000`. The unpacker
+runs from RAM at each stage. The first image verifies and installs
+the upper code. The second verifies the installed upper code and the compressed
+main firmware before writing the main firmware over itself and restarting.
+Sectors that already hold the right bytes are skipped. `pack` replays the
 same unpacking to prove the main firmware never erases stream bytes it has
 yet to read. Its report's `unused_content_bytes` is the compressed room left
-in the release, and `release` breaks the sizes down per region.
+in the release, and `release` breaks the sizes down per region. The main-only
+image reserves padding before its compressed stream to keep it clear of sectors
+the unpacker still needs to erase.
 
 The container uses the layout implemented by `firmware-image::build_container`:
 the two-byte prefix, application bytes, zero fill, a 16-byte descriptor at
@@ -1897,7 +1933,7 @@ envelope. The application
 must fit in 209916 bytes (`0x333fc`); the linker and packager protect the
 reserved descriptor and refuse oversized builds.
 
-The generated container passed all 26 batch checks and final bootloader
+The earlier one-file container passed all 26 batch checks and final bootloader
 verification on Linux. The flasher waits for flash programming to settle before
 verification and checks response packet checksums. Final verification has
 failed intermittently (code 4) after every batch was accepted, so the flasher
@@ -1914,16 +1950,19 @@ formatting, firmware Clippy (including diagnostics), and the offline packaging
 regressions, then builds normal release firmware **without diagnostic features**
 for `thumbv7em-none-eabihf`.
 
-Every run packs the release `.X1C` from those builds, runs the offline image audit,
-and validates it with the Rust flasher's `--dry-run`. No original firmware file,
-download URL, firmware-specific repository variables or secrets are needed.
+Every run packs and audits both `.X1C` files and validates them with the Rust
+flasher's `--dry-run`. A local build defaults to the private-test USB identity
+[`1209:0001`](https://pid.codes/1209/0001/). For distribution, set the assigned four-digit hexadecimal
+`KWS_X1_USB_VID` and `KWS_X1_USB_PID` environment variables before building.
+Tag builds take these values from the corresponding repository variables.
 It never opens USB hardware or flashes a device. Invalid applications, containers
 or failed audits block publication. Generated release files live in the ignored
 `dist/` directory; it is build output, not source code.
 
-CI runs provide a `firmware` build artifact, including packaging/audit JSON
-reports for build diagnostics. Pushing an unused `firmware-v` tag publishes a
-public [GitHub Release](https://github.com/kralonur/kws-x1-standalone-rs/releases)
+CI builds with an assigned USB identity provide a `firmware` artifact, including
+packaging and audit reports. Private-test builds are checked without uploading
+their binaries. Pushing an unused `firmware-v` tag with an assigned identity
+publishes a [release in this fork](https://github.com/inuchanbt/kws-x1-standalone-rs/releases)
 with the prepared downloads automatically after all checks pass. For example,
 after committing and pushing the source:
 
@@ -1935,7 +1974,7 @@ git push origin firmware-v0.1.0
 Use an independent version matching `firmware/Cargo.toml`. A version with a
 suffix, such as `firmware-v0.1.1-test.1`, is published as a pre-release, so it
 never becomes the latest release. Downloads contain
-`firmware.X1C`, `SHA256SUMS` and the project licenses. Packaging/audit JSON reports
+`firmware-upper.X1C`, `firmware.X1C`, `SHA256SUMS` and the project licenses. Packaging/audit JSON reports
 stay in CI artifacts; they are not release downloads and are not needed to flash.
 Verify `SHA256SUMS` (Linux:
 `sha256sum --check SHA256SUMS`; macOS: `shasum -a 256 --check SHA256SUMS`), or on
@@ -1960,6 +1999,13 @@ flashed, instead of the firmware.
 
 The Rust `flasher` is the project's flashing tool. It uses
 [HIDAPI](https://docs.rs/hidapi/) to communicate with the existing USB bootloader.
+
+When the release includes `firmware-upper.X1C`, use the commands below first
+with that file and its own hash. After the tool reboots the meter, wait for
+two short flashes followed by a steady backlight. Re-enter bootloader mode and
+flash `firmware.X1C` with its hash from the same build. After the second stage,
+the meter restarts into the application. Older one-file releases use the same
+commands with `firmware.X1C` only.
 
 #### Download and prerequisites
 
@@ -2058,7 +2104,7 @@ If final bootloader verification returns code 4, the tool automatically makes
 one more full erase-and-write pass with the same approved image. Other
 transport or protocol errors stop immediately. It never restores another image.
 
-**First boot after flashing:** the backlight comes on for a few seconds with a
+**First boot after flashing the final image:** the backlight comes on for a few seconds with a
 blank screen while the release unpacks itself, then the meter restarts into
 the firmware. Keep it powered until then. If the backlight **blinks**, the
 image was damaged or flash could not be written: enter bootloader mode and

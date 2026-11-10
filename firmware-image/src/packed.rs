@@ -1,5 +1,6 @@
-//! The self-unpacking release: one application image holding the unpacker
-//! and two raw LZMA2 streams, the upper region's then the main firmware's.
+//! Self-unpacking release images: the unpacker and raw LZMA2 streams for
+//! the upper region and main firmware. A two-stage release omits one stream
+//! per image, represented by a packed length of zero.
 //!
 //! ```text
 //! APP_BASE: unpacker ++ upper stream ++ main stream   (Packed::data -> upper stream)
@@ -8,13 +9,13 @@
 //! On its first boot the unpacker inflates both streams and checks their
 //! lengths and hashes, then writes the upper region and finally the main
 //! firmware over itself, sector by sector, from RAM. The main firmware's
-//! sectors are erased only below the stream bytes still to be read
-//! ([`main_erase_margin`]); `firmware-pack` runs the same [`inflate_sectors`]
-//! to prove that before packing.
+//! sectors are erased only when they contain no unread stream bytes
+//! ([`main_erase_margin`]). The final sector retains its footer bytes.
+//! `firmware-pack` runs the same [`inflate_sectors`] to prove the erase order.
 
 use lzma_rust2::{Action, Lzma2Stream, Status};
 
-use crate::{APP_BASE, ImageError, SECTOR_BYTES};
+use crate::{APP_BASE, ERASE_CEILING, ImageError, SECTOR_BYTES};
 
 /// One region in the image: its inflated length and hash
 /// ([`crate::region_hash`]) and its compressed stream's length, in bytes.
@@ -38,7 +39,7 @@ pub struct Packed {
 }
 
 /// Marks the unpacker's record for `firmware-pack`; random, unique.
-pub const PACKED_MAGIC: [u32; 2] = [0x554e_504b, 0x6a09_e667];
+pub const PACKED_MAGIC: [u32; 2] = [0x554e_504b, 0x6a09_e669];
 /// An unfilled record field.
 pub const PACKED_UNSET: u32 = u32::MAX;
 /// Inflated output is handed over in flash-sector chunks.
@@ -53,8 +54,32 @@ pub const WINDOW_BYTES: usize = 88 * 1024;
 /// sector except possibly the last) and the stream bytes consumed so far.
 pub struct Chunk<'a> {
     pub offset: usize,
-    pub bytes: &'a [u8],
     pub consumed: usize,
+    sector: &'a mut [u8],
+    len: usize,
+}
+
+impl Chunk<'_> {
+    pub fn bytes(&self) -> &[u8] {
+        &self.sector[..self.len]
+    }
+
+    /// Fill the unwritten tail with its old flash words before erasing the
+    /// sector. The callback takes a byte offset within this sector.
+    pub fn preserve_tail(&mut self, mut read_word: impl FnMut(usize) -> u32) -> Option<&[u8]> {
+        if !self.len.is_multiple_of(4) {
+            return None;
+        }
+        for (index, word) in self.sector[self.len..]
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .enumerate()
+        {
+            *word = read_word(self.len + index * 4).to_le_bytes();
+        }
+        Some(self.sector)
+    }
 }
 
 /// ARMv7-M Thumb-2 32-bit `BL` instruction fields (ARMv7-M ARM A7.7.18, T1):
@@ -221,8 +246,9 @@ pub fn inflate_sectors(
             filter_thumb_bl(&mut sector[..filled], flushed, false);
             let chunk = Chunk {
                 offset: flushed,
-                bytes: &sector[..filled],
                 consumed: read,
+                sector: &mut *sector,
+                len: filled,
             };
             if !sink(chunk) {
                 return Err(ImageError::Stopped);
@@ -239,11 +265,17 @@ pub fn inflate_sectors(
     }
 }
 
-/// How far the main firmware's sector holding `chunk_offset` ends below the
-/// first main stream byte not yet consumed; `None` when it reaches into
-/// those bytes and must not be erased.
+/// The gap between an erased sector and unread main stream bytes.
+/// The final sector is permitted at zero margin only after the stream ends.
 pub fn main_erase_margin(packed: &Packed, chunk_offset: usize, consumed: usize) -> Option<usize> {
     let sector_end = APP_BASE as usize + chunk_offset + CHUNK_BYTES;
+    let packed_len = packed.main.packed as usize;
+    if consumed > packed_len {
+        return None;
+    }
+    if sector_end == ERASE_CEILING as usize {
+        return (consumed == packed_len).then_some(0);
+    }
     let unread = packed.data as usize + packed.upper.packed as usize + consumed;
     unread.checked_sub(sector_end)
 }
