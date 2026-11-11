@@ -18,6 +18,14 @@ KOWSI KWS-X1 USB-C 電力計向けの非公式Rustファームウェアです。
 
 ファイル名は `OVERVIEW09.BMP`、`CHARGER10.BMP` のように、メニュー名と全メニュー共通の撮影順です。メニュー情報のない旧スクショは `SCREEN` 名で表示します。日時はファイルの撮影順を示さないため、番号を使ってください。保存枚数は圧縮後のサイズと残り容量で変わります。
 
+実機から取り出した画像の例です。BMPからPNGへ、画素を変えずに変換しています。
+
+| OVERVIEWの通常キャプチャ | SYSTEMの全行を保存した縦長キャプチャ |
+| --- | --- |
+| <img src="pictures/capture_overview.png" width="360" alt="電圧・電流・電力を表示したOVERVIEWの保存画像"> | <img src="pictures/capture_system.png" width="240" alt="画面外の行まで含めて保存したSYSTEMの縦長画像"> |
+
+キャプチャ後にVAWが停止する不具合の修正と、公開する2本の実機確認結果は [キャプチャの動作確認記録](docs/CAPTURE-VALIDATION.md#日本語) にまとめています。
+
 `CAPTURE FULL - COPY/CLEAR` が出たら、残したいBMPをPCにコピーします。消去するには **左＋右＋Back** を押しながらPCに差し直し、`ERASE ALL CAPTURES?` が出たら全ボタンを離して **OKを2秒**押します。**Back** でキャンセルできます。この操作はすべてのキャプチャを消去します。
 
 ## ビルドと互換性

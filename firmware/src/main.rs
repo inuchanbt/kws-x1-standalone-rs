@@ -1462,6 +1462,11 @@ async fn meter_task(
         if (dirty || changed || report_requested)
             && screenshot::status() != screenshot::Status::Saving
         {
+            if report_requested {
+                // Full-page staging is CPU-only too. Finish any suspended
+                // thread-mode I2C transaction before drawing all its rows.
+                drop(I2C3.lock().await);
+            }
             dirty = false;
             // SAFETY: this task is the sole framebuffer owner.
             let frame = unsafe { &mut *(fb as *mut Frame) };

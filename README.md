@@ -250,6 +250,16 @@ time. Open the numbered `PD*.BMP`, `CHARGER*.BMP`, `CABLE*.BMP` or
 release the buttons after half a second and before two seconds. Both kinds
 share the capture storage.
 
+Examples exported from a KWS-X1 running this fork (BMP files converted to PNG
+without changing the pixels):
+
+| Regular OVERVIEW capture | Full-page SYSTEM capture |
+| --- | --- |
+| <img src="pictures/capture_overview.png" width="360" alt="Exported OVERVIEW screenshot showing voltage, current and power"> | <img src="pictures/capture_system.png" width="240" alt="Exported tall SYSTEM screenshot including rows below the LCD viewport"> |
+
+The capture timing fix and the tested release pair are recorded in
+[Capture validation](docs/CAPTURE-VALIDATION.md).
+
 If `CAPTURE FULL - COPY/CLEAR` appears, copy the images to your PC first.
 Then hold **Left + Right + Back** while reconnecting to the PC. At
 `ERASE ALL CAPTURES?`, release the buttons and hold **OK** for two seconds

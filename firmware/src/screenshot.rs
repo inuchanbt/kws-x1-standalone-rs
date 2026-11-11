@@ -393,8 +393,16 @@ pub unsafe fn erase_capture_sector(base: usize) -> bool {
 #[embassy_executor::task]
 pub async fn save_task() {
     loop {
+        let pending = READY.wait().await;
+        // Encoder sizing and journal validation are CPU-only work on the
+        // thread executor. First let any suspended meter/tilt transfer finish:
+        // its 50 ms timeout still advances while this task is computing.
+        // Release the bus before computing so the interrupt-driven PD task
+        // can continue using it. Other thread tasks cannot start a transfer
+        // until this task reaches its next await.
+        drop(I2C3.lock().await);
         let fb = crate::framebuffer();
-        let result = match READY.wait().await {
+        let result = match pending {
             Pending::Screen(page) => {
                 // SAFETY: the display owner yielded the flushed frame.
                 let frame = unsafe { &*fb.cast::<[u8; FRAME_BYTES]>() };
@@ -482,13 +490,19 @@ async fn save(size: usize, bytes: &mut dyn Iterator<Item = u8>) -> Status {
     };
 
     for offset in (0..size).step_by(4 * WRITE_WORDS) {
-        let count = (size - offset).div_ceil(4).min(WRITE_WORDS);
-        let mut words = [flash::BLANK; WRITE_WORDS];
-        for word in &mut words[..count] {
-            *word = u32::from_le_bytes(core::array::from_fn(|_| bytes.next().unwrap_or(0xff)));
-        }
-        if !write(base, data + offset, &words[..count]).await {
-            return Status::Failed;
+        {
+            // Lazy compression also runs while producing each write batch.
+            // Drain in-flight I2C before that work, then keep the short batch
+            // and its flash programming in the same bus lease.
+            let _bus = I2C3.lock().await;
+            let count = (size - offset).div_ceil(4).min(WRITE_WORDS);
+            let mut words = [flash::BLANK; WRITE_WORDS];
+            for word in &mut words[..count] {
+                *word = u32::from_le_bytes(core::array::from_fn(|_| bytes.next().unwrap_or(0xff)));
+            }
+            if !flash::program_blank(base, data + offset, &words[..count]) {
+                return Status::Failed;
+            }
         }
         Timer::after_millis(1).await;
     }
