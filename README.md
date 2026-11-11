@@ -264,7 +264,9 @@ The capture timing fix and the tested release pair are recorded in
 [Capture validation](docs/CAPTURE-VALIDATION.md).
 
 If `CAPTURE FULL - COPY/CLEAR` appears, copy the images to your PC first.
-Then hold **Left + Right + Back** while reconnecting to the PC. At
+Then hold **Left + Right + Back** while powering the meter from a **5 V USB
+source** (a PC, USB charger or power bank supplying 5 V). Clearing does not
+require a PC or USB data communication. At
 `ERASE ALL CAPTURES?`, release the buttons and hold **OK** for two seconds
 to free the capture sectors, or press **Back** to cancel. Unplug to exit.
 `CAPTURE NO SPACE` means the meter found no sector it could use.
