@@ -1,7 +1,7 @@
 //! A snapshot of the LCD header and every printable detail row.
 
 use crate::buttons::Detail;
-use crate::panel::WIDTH;
+use crate::panel::{HEIGHT, WIDTH};
 use crate::screenshot::{COMPACT_HEADER_BYTES, MAX_RECORD_BYTES, payload_crc};
 
 pub(crate) const MAGIC: &[u8; 4] = b"X1SR";
@@ -150,8 +150,9 @@ impl<'a> DetailReport<'a> {
         self.page
     }
 
+    /// Export short reports at LCD height, with background below their rows.
     pub fn height(self) -> usize {
-        HEADER_ROWS + usize::from(self.count) * ROW_HEIGHT
+        (HEADER_ROWS + usize::from(self.count) * ROW_HEIGHT).max(usize::from(HEIGHT))
     }
 
     pub fn color(self, index: usize) -> u16 {

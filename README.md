@@ -248,7 +248,10 @@ BMP. It uses the LCD header, colors and font and the data available at capture
 time. Open the numbered `PD*.BMP`, `CHARGER*.BMP`, `CABLE*.BMP` or
 `SYSTEM*.BMP` on the USB drive. For a regular screenshot on these pages,
 release the buttons after half a second and before two seconds. Both kinds
-share the capture storage.
+share the capture storage. Exported detail images are at least 240×135 pixels;
+short reports have background padding below the content, while longer reports
+keep every row. The padding is generated during USB export and uses no extra
+capture storage.
 
 Examples exported from a KWS-X1 running this fork (BMP files converted to PNG
 without changing the pixels):

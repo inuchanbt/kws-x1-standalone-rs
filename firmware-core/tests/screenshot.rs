@@ -332,7 +332,12 @@ fn flash_backup_is_read_only_and_does_not_renumber_captures() {
     use firmware_core::screenshot_disk::FLASH_SNAPSHOT_BYTES;
 
     let mut snapshot = [0; FLASH_SNAPSHOT_BYTES];
-    for (index, block) in snapshot.chunks_exact_mut(BLOCK_BYTES).enumerate() {
+    for (index, block) in snapshot
+        .as_chunks_mut::<BLOCK_BYTES>()
+        .0
+        .iter_mut()
+        .enumerate()
+    {
         block.fill(index as u8);
     }
     let image = encode(&[0; FRAME_BYTES]);
@@ -387,6 +392,78 @@ fn exports_a_cable_report_from_the_previous_format() {
     };
     assert_eq!(report.page(), Detail::Cable);
     assert_eq!(report.row(0), Some((true, "CABLE")));
+    assert_eq!(report.height(), 135);
+}
+
+#[test]
+fn short_detail_bmps_pad_to_lcd_height_without_truncating_longer_reports() {
+    for page in [Detail::Pd, Detail::Charger, Detail::Cable, Detail::System] {
+        for (rows, height) in [(1usize, 135), (2, 135), (9, 135), (10, 144)] {
+            let sections = (0..rows.div_ceil(8)).map(|section| {
+                let mut lines = [[b' '; 36]; 8];
+                for (index, line) in lines.iter_mut().enumerate() {
+                    if section * 8 + index < rows {
+                        let text = format!("Row {} 7", section * 8 + index);
+                        line[..text.len()].copy_from_slice(text.as_bytes());
+                    }
+                }
+                lines
+            });
+            // A blue background checks that padding uses palette index zero,
+            // rather than assuming that the background color is black.
+            let mut header = [0; HEADER_RGB_BYTES];
+            for pixel in header.as_chunks_mut::<2>().0 {
+                *pixel = [0, 0x1f];
+            }
+            header[..2].copy_from_slice(&[0xf8, 0]);
+            let mut encoded = [0; MAX_RECORD_BYTES];
+            let size = encode_report(
+                page,
+                &header,
+                [0x001f, 0xffff, 0x07ff],
+                sections,
+                &mut encoded,
+            )
+            .unwrap();
+            let mut records = [None; CAPTURE_TABLE_LEN];
+            records[0] = Capture::open(&encoded[..size]);
+            let Some(Capture::Report(report)) = records[0] else {
+                panic!("detail report did not open");
+            };
+            assert!(report.row(rows).is_none());
+            let mut scratch = [0xa5; PIXELS];
+            let mut disk = Disk::new(&records, &mut scratch, test_cable_band);
+            let mut boot = [0; BLOCK_BYTES];
+            disk.read(0, &mut boot);
+            let (first_root, first_data) = volume_layout(&boot);
+            let root = read_blocks(&mut disk, first_root..first_data);
+            let files = directory_files(&root);
+            let file_size = u32::from_le_bytes(files[0].1[28..32].try_into().unwrap()) as usize;
+            let mut bmp = read_blocks(
+                &mut disk,
+                first_data..first_data + file_size.div_ceil(BLOCK_BYTES) as u32,
+            );
+            bmp.truncate(file_size);
+            assert_eq!(i32::from_le_bytes(bmp[18..22].try_into().unwrap()), 240);
+            assert_eq!(i32::from_le_bytes(bmp[22..26].try_into().unwrap()), -height);
+            let pixels = u32::from_le_bytes(bmp[10..14].try_into().unwrap()) as usize;
+            assert_eq!(file_size, pixels + height as usize * 120);
+            assert_eq!(
+                u32::from_le_bytes(bmp[2..6].try_into().unwrap()) as usize,
+                file_size
+            );
+            assert_eq!(&bmp[54..58], &[255, 0, 0, 0]);
+            assert_eq!(bmp[pixels], 0x30);
+            for row in 0..rows {
+                assert_ne!(bmp[pixels + HEADER_BYTES + row * BAND_BYTES], 0);
+            }
+            assert!(
+                bmp[pixels + HEADER_BYTES + rows * BAND_BYTES..]
+                    .iter()
+                    .all(|&b| b == 0)
+            );
+        }
+    }
 }
 
 #[test]

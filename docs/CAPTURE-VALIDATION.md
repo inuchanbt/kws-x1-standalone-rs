@@ -2,6 +2,56 @@
 
 ## English
 
+### firmware-v0.12.0-capture.2
+
+This pair was tested on a KWS-X1 on 2026-11-11. It exports detail captures at
+a minimum of 240×135 pixels, adding background below short reports. Longer
+reports retain all their rows. Padding is generated during USB export, so
+the stored record format and capture storage usage are unchanged.
+
+| File | SHA-256 |
+| --- | --- |
+| `firmware-upper.X1C` | `7b22f9b7b8244acaf3ec0d5cd0a85aa8af08a92dc6fc3ca1ccc2a3db29b3c123` |
+| `firmware.X1C` | `694ba906c5422990f45e82a3912febbb88867cc57bfd38493b0d7a6413cf57a9` |
+
+Both flashing stages passed bootloader checksum checks. The user confirmed
+the stage-1 two-flash indication, normal measurement startup, minimum image
+dimensions and preservation of all rows in longer captures. Four exported
+BMPs were copied to the PC with matching hashes and decoded successfully:
+
+| Capture | Dimensions |
+| --- | --- |
+| `CABLE03.BMP` | 240×135 |
+| `CABLE04.BMP` | 240×135 |
+| `PD02.BMP` | 240×135 |
+| `CABLE09.BMP` | 240×720 |
+
+All 14 screenshot tests passed, including short-report padding on all four
+detail pages, a nonblack background, the minimum-height boundary, longer
+reports and legacy Cable compatibility. Firmware compilation, static checks,
+package audits and flasher dry runs passed. Existing short reports receive
+the padding when exported through the new firmware.
+
+## 日本語
+
+### firmware-v0.12.0-capture.2
+
+2026年11月11日、上記ハッシュの2本をKWS-X1実機へ順番に書き込み、
+照合・2回点滅・測定画面への復帰を確認しました。
+全行キャプチャは最低240×135ピクセルとなり、短い場合は下側を背景色で補います。
+長い場合は全行を保持します。余白はUSB取り出し時に生成するため、
+本体の保存形式と保存容量は従来どおりです。既存の短い画像にも適用されます。
+
+ユーザーが最小サイズと長い画面の全行保存を確認しました。
+上記4枚をUSBからPCへコピーし、ハッシュ一致と画像の読み込みも確認しています。
+短いCABLEとPDは240×135、長いCABLEは240×720でした。
+画像関連テスト14件、ビルド・静的検査、X1Cの照合と書き込み前検査も通っています。
+書き込みには[2段階手順](FLASHING.md#日本語)を使ってください。
+
+## Previous release / 前のリリース
+
+### English
+
 The `firmware-v0.12.0-capture.1` pair below was tested on a KWS-X1 on
 2026-11-11. Use both files from the same release and follow
 [Two-stage flashing](FLASHING.md).
@@ -40,7 +90,7 @@ This records the observed results on the tested unit; it does not establish
 compatibility with every hardware revision. Screenshot examples are in the
 [README](../README.md#screen-capture).
 
-## 日本語
+### 日本語
 
 2026年11月11日、上記ハッシュの2本をKWS-X1実機で確認しました。
 同じリリースの2本を、[2段階書き込み手順](FLASHING.md#日本語) の順番で使います。
