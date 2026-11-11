@@ -68,6 +68,9 @@ pub fn blank(base: usize) -> bool {
 // SAFETY: this routine must run from RAM while flash programming is active.
 #[unsafe(link_section = ".data.flash_program")]
 unsafe extern "C" fn program(address: u32, words: *const u32, count: u32, window: u32) -> u32 {
+    if crate::CAPTURE_DIAGNOSTIC {
+        return REJECTED;
+    }
     const EFM: u32 = 0x4001_0400;
     let faprt = EFM as *mut u32;
     let frmc = (EFM + 0x08) as *mut u32;
@@ -117,6 +120,9 @@ unsafe extern "C" fn program(address: u32, words: *const u32, count: u32, window
 #[inline(never)]
 #[unsafe(link_section = ".data.flash_erase")]
 pub unsafe extern "C" fn erase_sector(base: u32) -> u32 {
+    if crate::CAPTURE_DIAGNOSTIC {
+        return REJECTED;
+    }
     const EFM: u32 = 0x4001_0400;
     /// FWMC: PEMODE and sector erase PEMOD.
     const SECTOR_ERASE: u32 = 1 | 0b100 << 4;

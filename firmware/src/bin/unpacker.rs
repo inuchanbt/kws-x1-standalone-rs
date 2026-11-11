@@ -34,6 +34,10 @@ mod flash;
 
 use flash::{BLANK, SECTOR, program_blank, read};
 
+// Installing the app still writes code within the unpacker's range checks.
+// Only the diagnostic app, after installation, disables flash writes.
+const CAPTURE_DIAGNOSTIC: bool = false;
+
 // Copy `.ramcode` (`unpacker.x`) from flash to RAM before cortex-m-rt
 // initializes RAM; it runs from flash, so it calls nothing.
 core::arch::global_asm!(

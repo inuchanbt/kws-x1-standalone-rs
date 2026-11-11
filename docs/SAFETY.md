@@ -353,6 +353,12 @@ capture-owned sectors, and checks every nonblank sector in
 matching sector is read back after erase. The existing capture sector at
 `0x6c000`, factory data and settings are outside the erase range.
 
+The opt-in `capture-diagnostic` build exports the dedicated 48 KiB capture
+region as `CAPFLASH.BIN` alongside readable BMPs. It suppresses capture,
+clear, reclaim, settings and energy writes; its application flash-program
+and flash-erase routines return a rejected-operation code. The separate
+unpacker still installs code within its ordinary fenced ranges.
+
 Normal firmware saves settings (brightness, rotation, energy-memory interval)
 and does not program the diagnostic log. Settings and logs use the same
 append-only writer: blank words only in blank or already-claimed sectors from

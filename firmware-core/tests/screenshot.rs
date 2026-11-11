@@ -334,8 +334,10 @@ fn flash_backup_is_read_only_and_does_not_renumber_captures() {
         block.fill(index as u8);
     }
     let image = encode(&[0; FRAME_BYTES]);
+    let named = encode_for(&[0; FRAME_BYTES], CapturePage::Settings);
     let mut records = [None; CAPTURE_TABLE_LEN];
-    records[..15].fill(Capture::open(&image));
+    records[..13].fill(Capture::open(&image));
+    records[13..15].fill(Capture::open(&named));
     let mut scratch = [0; PIXELS];
     let mut disk =
         Disk::new(&records, &mut scratch, test_cable_band).with_flash_snapshot(&snapshot);
@@ -345,11 +347,14 @@ fn flash_backup_is_read_only_and_does_not_renumber_captures() {
     let cluster_blocks = u32::from(boot[13]);
     let fat = read_blocks(&mut disk, 1..first_root);
     let root = read_blocks(&mut disk, first_root..first_data);
-    assert_eq!(&root[15 * 32..][..11], b"SCREEN15BMP");
-    let entry = &root[16 * 32..][..32];
-    assert_eq!(&entry[..11], b"CAPFLASHBIN");
+    let files = directory_files(&root);
+    assert_eq!(files.len(), 16);
+    assert_eq!(files[12].0, "SCREEN13.BMP");
+    assert_eq!(files[13].0, "SETTINGS14.BMP");
+    assert_eq!(files[14].0, "SETTINGS15.BMP");
+    let (name, entry) = &files[15];
+    assert_eq!(name, "CAPFLASH.BIN");
     assert_eq!(entry[11] & 1, 1);
-    assert_eq!(root[17 * 32], 0);
     let size = u32::from_le_bytes(entry[28..32].try_into().unwrap()) as usize;
     assert_eq!(size, snapshot.len());
     let mut cluster = u16::from_le_bytes(entry[26..28].try_into().unwrap());

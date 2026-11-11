@@ -944,7 +944,10 @@ async fn button_task(
         rotation = input.settings.rotation;
         // Save once a value is no longer being changed, and before a restart
         // (a scrolling list counts as editing) so the next boot sees it.
-        if !input.page.editing() || command == Some(firmware_core::buttons::PdCommand::Restart) {
+        if !CAPTURE_DIAGNOSTIC
+            && (!input.page.editing()
+                || command == Some(firmware_core::buttons::PdCommand::Restart))
+        {
             store.save(input.settings);
             SETTINGS_SAVE.sender().send_if_modified(|current| {
                 let status = store.status();
@@ -1338,7 +1341,8 @@ async fn meter_task(
             }
         }
 
-        if energy_memory.seconds().is_some()
+        if !CAPTURE_DIAGNOSTIC
+            && energy_memory.seconds().is_some()
             && (save_energy || next_save.is_some_and(|deadline| Instant::now() >= deadline))
         {
             // No I2C transaction may be suspended by the flash erase. Saving
@@ -1880,6 +1884,7 @@ async fn meter_task(
 const I2C3_SDA: u8 = 48;
 const I2C3_SCL: u8 = 49;
 
+const CAPTURE_DIAGNOSTIC: bool = cfg!(feature = "capture-diagnostic");
 const CAPTURE_ARROWS: u8 = button_logic::LEFT | button_logic::RIGHT;
 const CLEAR_CHORD: u8 = CAPTURE_ARROWS | button_logic::BACK;
 #[cfg(feature = "capture-reclaim")]
@@ -2059,7 +2064,9 @@ async fn main(spawner: Spawner) {
         core::ptr::write_bytes(framebuffer(), 0, firmware_core::panel::PIXELS);
     }
     #[cfg(any(feature = "pd-boot-diagnostic", feature = "cable-log"))]
-    flash_log::start();
+    if !CAPTURE_DIAGNOSTIC {
+        flash_log::start();
+    }
     // A clock error leaves startup fail-stopped; dependent drivers stay inactive.
     // SAFETY: SRAM timing is configured; startup owns clocks with IRQs/drivers inactive.
     let Ok(clocks) = (unsafe { clock_setup::init() }) else {
@@ -2088,17 +2095,21 @@ async fn main(spawner: Spawner) {
     // Checked before any task: the PD stack's code lives in the upper region.
     let upper_installed = upper::installed();
     #[cfg(feature = "capture-reclaim")]
-    let reclaim = capture_reclaim::ENABLED && upper_installed && boot_buttons == RECLAIM_CHORD;
+    let reclaim = !CAPTURE_DIAGNOSTIC
+        && capture_reclaim::ENABLED
+        && upper_installed
+        && boot_buttons == RECLAIM_CHORD;
     #[cfg(not(feature = "capture-reclaim"))]
     let reclaim = false;
     let capture_boot = reclaim || matches!(boot_buttons, CAPTURE_ARROWS | CLEAR_CHORD);
     // Migrate only legacy logs in the energy pair before any bus, display DMA
     // or protocol task starts. No blanket cleanup of other occupied sectors.
-    let (energy_store, energy_save_status) = if upper_installed && !capture_boot {
-        energy_store::open()
-    } else {
-        (None, energy_store::Status::Occupied)
-    };
+    let (energy_store, energy_save_status) =
+        if !CAPTURE_DIAGNOSTIC && upper_installed && !capture_boot {
+            energy_store::open()
+        } else {
+            (None, energy_store::Status::Occupied)
+        };
 
     // Each task is spawned once, here, into its default one-slot pool, so a
     // token is always free (`SpawnError::Busy` needs a second instance).
@@ -2133,7 +2144,7 @@ async fn main(spawner: Spawner) {
         settings.afc_findings = None;
     }
     settings.finish_boot();
-    let cleared = !capture_boot && store.save(settings);
+    let cleared = !CAPTURE_DIAGNOSTIC && !capture_boot && store.save(settings);
     SETTINGS_SAVE.sender().send(store.status());
     // The cable test runs only on a boot after a power-up (the restart's power
     // cycle), with its request verifiably cleared first. A reset during that
@@ -2270,7 +2281,7 @@ async fn main(spawner: Spawner) {
             let at_usb_voltage = usb_voltage().await;
             let (_pwm, backlight_pin) = backlight;
             let panel_ready = panel::init(backlight_pin).await;
-            if at_usb_voltage && (reclaim || boot_buttons == CLEAR_CHORD) {
+            if at_usb_voltage && !CAPTURE_DIAGNOSTIC && (reclaim || boot_buttons == CLEAR_CHORD) {
                 if panel_ready {
                     clear_screenshots(&button_inputs, reclaim).await;
                 }
@@ -2357,6 +2368,8 @@ async fn main(spawner: Spawner) {
     spawner.spawn(tilt_task(tilt_input).expect(ONE_SPAWN));
     spawner.spawn(line_task(line_adc, qc_trigger).expect(ONE_SPAWN));
     spawner.spawn(ripple::run(ripple_adc, clocks.pclk[2]).expect(ONE_SPAWN));
-    spawner.spawn(screenshot::save_task().expect(ONE_SPAWN));
+    if !CAPTURE_DIAGNOSTIC {
+        spawner.spawn(screenshot::save_task().expect(ONE_SPAWN));
+    }
     spawner.spawn(button_task(button_inputs, store, settings, requested, resume).expect(ONE_SPAWN));
 }

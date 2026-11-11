@@ -47,7 +47,9 @@ pub enum Kind {
 }
 
 pub fn request(kind: Kind) {
-    REQUEST.store(kind as u8, Ordering::Relaxed);
+    if !crate::CAPTURE_DIAGNOSTIC {
+        REQUEST.store(kind as u8, Ordering::Relaxed);
+    }
 }
 
 pub fn take_request() -> Option<Kind> {

@@ -34,6 +34,8 @@ flash-probe = []
 capture-probe = []
 # Include a read-only dump of the dedicated capture region on the USB drive.
 capture-backup = ["firmware-core/capture-backup"]
+# Diagnostic build: export the dump and suppress capture/settings/energy writes.
+capture-diagnostic = ["capture-backup"]
 # Enable the device-specific cleanup prompt in the initialized application.
 capture-reclaim = []
 
