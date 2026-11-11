@@ -231,8 +231,10 @@ fn directory_files(root: &[u8]) -> Vec<(String, &[u8; 32])> {
                 for range in [1..11, 14..26, 28..32] {
                     codes.extend(
                         part[range]
-                            .chunks_exact(2)
-                            .map(|bytes| u16::from_le_bytes(bytes.try_into().unwrap())),
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
+                            .map(|&bytes| u16::from_le_bytes(bytes)),
                     );
                 }
             }

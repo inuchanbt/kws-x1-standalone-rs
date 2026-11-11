@@ -67,7 +67,9 @@ The Windows flasher is available separately from the
 
 If no public capture binaries are available, follow [Build and validation](#build-and-validation)
 and [Package and audit offline](#package-and-audit-offline) for a local test build.
-Public binaries require a USB VID/PID assigned to this project.
+Screenshot export uses a shared Mass Storage USB ID under the
+[shared-ID terms](docs/USB-IDENTITY.md). Release binaries are published after
+hardware checks of the exact firmware pair.
 
 ## Related repositories
 
@@ -1951,19 +1953,23 @@ regressions, then builds normal release firmware **without diagnostic features**
 for `thumbv7em-none-eabihf`.
 
 Every run packs and audits both `.X1C` files and validates them with the Rust
-flasher's `--dry-run`. A local build defaults to the private-test USB identity
-[`1209:0001`](https://pid.codes/1209/0001/). For distribution, set the assigned four-digit hexadecimal
-`KWS_X1_USB_VID` and `KWS_X1_USB_PID` environment variables before building.
-Tag builds take these values from the corresponding repository variables.
+flasher's `--dry-run`. A build defaults to the shared Mass Storage identity
+`16c0:27df`, with the descriptors and usage conditions documented in
+[USB identity](docs/USB-IDENTITY.md). An authorized custom identity can be
+selected with both four-digit hexadecimal `KWS_X1_USB_VID` and
+`KWS_X1_USB_PID` environment variables. CI takes overrides from repository
+variables with those names.
 It never opens USB hardware or flashes a device. Invalid applications, containers
 or failed audits block publication. Generated release files live in the ignored
 `dist/` directory; it is build output, not source code.
 
-CI builds with an assigned USB identity provide a `firmware` artifact, including
-packaging and audit reports. Private-test builds are checked without uploading
-their binaries. Pushing an unused `firmware-v` tag with an assigned identity
-publishes a [release in this fork](https://github.com/inuchanbt/kws-x1-standalone-rs/releases)
-with the prepared downloads automatically after all checks pass. For example,
+CI uploads a `firmware` artifact only when both generated images match the
+hardware-tested hashes in `KWS_X1_VERIFIED_UPPER_SHA256` and
+`KWS_X1_VERIFIED_MAIN_SHA256` repository variables. Other builds are checked
+without uploading their binaries. Pushing an unused `firmware-v` tag with
+those matching hashes publishes a
+[release in this fork](https://github.com/inuchanbt/kws-x1-standalone-rs/releases)
+after all checks pass. For example,
 after committing and pushing the source:
 
 ```sh

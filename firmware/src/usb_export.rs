@@ -335,8 +335,10 @@ const fn usb_id(hex: &str) -> u16 {
 
 const USB_ID: UsbVidPid = match (option_env!("KWS_X1_USB_VID"), option_env!("KWS_X1_USB_PID")) {
     (Some(vid), Some(pid)) => UsbVidPid(usb_id(vid), usb_id(pid)),
-    // pid.codes reserves this pair for private testing.
-    (None, None) => UsbVidPid(0x1209, 0x0001),
+    // Objective Development's shared Mass Storage ID. Export uses only the
+    // OS class driver; its rules permit omitting a serial in this case.
+    // See docs/USB-IDENTITY.md for the shared-ID terms.
+    (None, None) => UsbVidPid(0x16c0, 0x27df),
     _ => panic!("Set both KWS_X1_USB_VID and KWS_X1_USB_PID"),
 };
 
@@ -354,7 +356,9 @@ pub unsafe fn run(hclk: u32, disk: Disk<'_>) -> ! {
             .usb_rev(UsbRev::Usb200)
             .max_packet_size_0(PACKET as u8)
             .unwrap()
-            .strings(&[StringDescriptors::default().product("KWS-X1 Screenshot")])
+            .strings(&[StringDescriptors::default()
+                .manufacturer("usb.pd.epr.240w@gmail.com")
+                .product("KWS-X1 Screenshot")])
             .unwrap()
             .max_power(100)
             .unwrap()
