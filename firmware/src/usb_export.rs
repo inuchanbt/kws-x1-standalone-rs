@@ -361,7 +361,9 @@ pub unsafe fn run(hclk: u32, disk: Disk<'_>) -> ! {
             .unwrap()
             .strings(&[StringDescriptors::default()
                 .manufacturer("usb.pd.epr.240w@gmail.com")
-                .product(if cfg!(feature = "charging-logger") {
+                .product(if cfg!(feature = "logger-observer") {
+                    "KWS-X1 Observer"
+                } else if cfg!(feature = "charging-logger") {
                     "KWS-X1 Logger"
                 } else {
                     "KWS-X1 Screenshot"

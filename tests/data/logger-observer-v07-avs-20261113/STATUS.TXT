@@ -1,0 +1,12 @@
+KWS LOGGER STORAGE
+FREE SECTORS: 3/6
+SECTOR TYPE    FIRST ID   SLOTS
+1      VI V2   0000000001 0056
+2      PD V2   0000000001 0511
+3      PD V2   0000000001 0195
+4      FREE    0000000000 0000
+5      FREE    0000000000 0000
+6      FREE    0000000000 0000
+LATEST SESSION: 0000000001 / 0000000032
+V2 reuses tails; zero free sectors can still record.
+                                                                                                                                                       

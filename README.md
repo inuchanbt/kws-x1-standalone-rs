@@ -1,5 +1,7 @@
 # kws-x1-standalone-rs
 
+> **Single-file observer v0.7 candidate:** `--features logger-observer` builds a passive logger with active protocol controls disabled. One device has verified single-file installation, ten short recordings with CSV/raw-store integrity, and a 55-second AVS sweep with physical PD-sector continuation. All 476 sweep packets match CY4500, and all nine steps were compared with ASD-PD31. See [Observer guide](docs/LOGGER-OBSERVER.md).
+
 > **Branch: `charging-logger` — experimental logger development.** The screenshot baseline and established releases stay on `main`. See [branch policy](docs/BRANCHES.md). Logger builds require `--features charging-logger`.
 
 > **Experimental charging logger v0.4:** build with `--features charging-logger` to replace screenshot capture/BMP export with 1-second voltage/current recording, passive PD RX logging and USB CSV export. A 64-second AVS sweep on one KWS-X1 verified event-sector rollover and 516 matching packets in the CY4500 overlap; see the [English guide](docs/CHARGING-LOGGER.md), [Japanese guide](docs/CHARGING-LOGGER.ja.md), and [validation record](docs/LOGGER-VALIDATION.md). The default build remains the screenshot variant. No logger release assets have been published.

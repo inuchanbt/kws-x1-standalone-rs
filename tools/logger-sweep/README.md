@@ -31,7 +31,7 @@ this fingerprint. Companion ASD modules must remain compatible with that version
 6. At `[DONE]`, output remains at 20 V / 0.5 A. Stop the KWS logger and wait for
    `LOGGER STOPPED`; then press Enter in PowerShell. Only then does normal cleanup
    send LOAD_OFF and stop/export CY4500.
-7. Copy the KWS `LOG*.CSV` files into the newly printed run folder after USB export.
+7. Copy the matching KWS `VI*.CSV` / `PD*.CSV` files (or legacy `LOG*.CSV`) into the newly printed run folder after USB export, or use the separate reference-directory option below.
 
 Every run creates a unique `CY4500_logs/kws_avs_*` directory under the KWS project,
 containing `ASD.csv`, `CY4500.csv`, and the CY4500 backend's diagnostic sidecars.
@@ -99,3 +99,61 @@ by default; use `--verbose` to restore it. `[SWEEP START]`, `[REQUEST]`, and
 Enter acknowledgments show progress. Twelve offline tests pass; hardware validation
 is pending. The previous trace showed only READY measurements, no sweep request;
 the reason Enter did not advance that run has not been established.
+
+## Three-instrument comparison
+
+Every current run already saves measured voltage/current/power and requested
+setpoints to ASD.csv. `--no-condition-log` suppresses condition/temperature
+telemetry, not these measurement rows. No launcher/FW update or repeated
+measurement is needed to enable the offline ASD comparison.
+
+`tools/logger_compare.py` reports both the existing KWS/CY4500 packet match and
+KWS/ASD measurement differences in its `asd` object. With KWS CSVs and both
+reference CSVs in one directory:
+
+```powershell
+python tools/logger_compare.py PATH_TO_SAME_RUN --session 11
+```
+
+For separately copied KWS files, select the analyzer folder printed by the
+**same physical sweep**, replacing RUN_ID with that exact folder suffix:
+
+```powershell
+python tools/logger_compare.py log_backup/v07-sweep --session 11 --reference-dir CY4500_logs/kws_avs_RUN_ID
+```
+
+Session selection is required if the export contains multiple recording IDs;
+this prevents earlier short recordings from being mixed into the sweep.
+Different runs can use identical voltage routes: do not substitute older
+ASD/CY CSVs just because the setpoints agree.
+
+The analog comparison keeps outbound and return steps separate. KWS snapshots
+are grouped by the eight recorded EPR_Request boundaries; ASD rows are grouped
+by ordered logger-outbound/logger-return phase and target, excluding READY and
+STOP-wait rows. Each changed KWS step excludes its first 1,000 ms. Snapshots
+outside ±0.5 V or ±0.05 A of their target are counted and excluded from the
+steady median; these are selection windows, not accuracy/compliance limits.
+Report fields include per-step sample counts, exclusions, instrument medians
+and signed KWS-minus-ASD differences in mV/mA. Missing steady data is reported
+as partial; a different/missing route is unavailable rather than fabricated.
+
+These are independent per-step medians, not simultaneous sample pairs.
+The public fixture has blank timestamp values, and original ASD timestamps
+have second resolution; no cross-device timestamp fit is claimed. Differences
+include measurement-position/wiring drop, offsets and remaining timing effects.
+They do not establish absolute accuracy, calibration or transition response.
+
+The published v0.4 fixture yields nine compared steps with voltage median
+differences +12 to +15 mV and current differences +2 to +3 mA, while retaining
+516 matching PD packets. The local v0.5 run kws_avs_k98fuz7e, paired with the
+backed-up session 1, yields +14 to +39 mV and +2 mA over nine steps; its PD
+comparison remains 456 packets. Neither is the pending v0.7 sweep result.
+
+```powershell
+python -m unittest discover -s tools -p "test_logger*.py"
+```
+
+Seven tests cover legacy/typed filenames, missing ASD, the published analog
+comparison, separate reference folders and session selection, known synthetic
+meter differences, current transients, incomplete routes and missing steady data.
+They open no hardware.

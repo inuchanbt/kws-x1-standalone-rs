@@ -1,5 +1,6 @@
 //! The PD task: selects sink or passthrough mode at boot, then runs the sink
 //! session or the receive-only sniffer and keeps publishing the observation.
+#![cfg_attr(feature = "logger-observer", allow(dead_code, unused_imports))]
 
 use core::sync::atomic::Ordering;
 
@@ -28,6 +29,7 @@ use crate::{
 /// interrupts remain globally masked. Errors halt without reset, retry or
 /// cleanup.
 #[embassy_executor::task]
+#[cfg(not(feature = "logger-observer"))]
 pub async fn run(
     mut input: embassy_hc32::exti::ExtiInput,
     pc13: InputPin,
@@ -92,6 +94,42 @@ pub async fn run(
             input.wait_for_edge(),
         )
         .await;
+    }
+}
+
+/// Separate async state machine: the active sink futures cannot be linked in.
+#[cfg(feature = "logger-observer")]
+#[embassy_executor::task]
+pub async fn run(
+    mut input: embassy_hc32::exti::ExtiInput,
+    pc13: InputPin,
+    _boot: NextBoot,
+    _cable_test_skipped: bool,
+) {
+    let mut observation = pd::Observation::new();
+    observation.reset_flags = crate::reset_flags();
+    let mut samples = [false; 3];
+    for high in &mut samples {
+        *high = !pc13.is_low();
+        Timer::after_millis(1).await;
+    }
+    let ready = firmware_core::observer::ready(samples);
+    observation.pc13_high = Some(ready);
+    observation.irq_high = input.is_high();
+    observation.phase = pd::Phase::Hold;
+    store_observation(observation);
+    if ready {
+        if let Some(released) = passthrough(&mut observation).await {
+            sniff(&mut observation, released, &pc13).await;
+        }
+    }
+    // Wrong slider, receive fault or slider change: do not negotiate or retry.
+    loop {
+        observation.irq_high = input.is_high();
+        observation.irq_count = PD_IRQ_COUNT.load(Ordering::Relaxed);
+        publish_observation(observation);
+        let _ =
+            embassy_time::with_timeout(Duration::from_millis(1000), input.wait_for_edge()).await;
     }
 }
 
@@ -181,7 +219,11 @@ const SNIFF_FULL_POLL: embassy_time::Duration = embassy_time::Duration::from_mil
 /// poll (see [`SNIFF_FULL_POLL`]) and a read-only configuration check every
 /// second. Any error stops it for good, without
 /// cleanup writes; bus errors and configuration mismatches also latch the bus.
-async fn sniff(observation: &mut pd::Observation, released: pd::Snapshot) {
+async fn sniff(
+    observation: &mut pd::Observation,
+    released: pd::Snapshot,
+    #[cfg(feature = "logger-observer")] slider: &InputPin,
+) {
     let mut view = pd::SniffObservation::new();
     observation.sniff = Some(view);
     publish_observation(*observation);
@@ -222,6 +264,12 @@ async fn sniff(observation: &mut pd::Observation, released: pd::Snapshot) {
     let mut next_poll = Instant::now();
     while view.stop.is_none() {
         Timer::after_millis(1).await;
+        #[cfg(feature = "logger-observer")]
+        if slider.is_low() {
+            observation.pc13_high = Some(false);
+            view.stop = Some(pd::SniffStop::Halted);
+            break;
+        }
         let mut changed = false;
         {
             let mut guard = I2C3.lock().await;

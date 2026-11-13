@@ -17,3 +17,6 @@ loggerブランチでも通常ビルドはキャプチャ版のため、logger�
 
 [公開検証データ](../tests/data/logger-avs-20261113)を掲載しています。ソースやデータの公開と、
 FWのRelease配布は別です。旧データ消去用のハッシュは自分のバックアップから生成してください。
+
+同じcharging-loggerブランチに、`--features logger-observer`で作る観測専用の
+単一ファイル候補を追加しました。能動制御は含みません。[詳細](LOGGER-OBSERVER.ja.md)。

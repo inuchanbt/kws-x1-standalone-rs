@@ -18,7 +18,9 @@ with at least three seconds per point. Logging was stopped before LOAD_OFF.
 - CY4500.diagnostics.json: original analyzer error/capture counters.
 - ASD.csv: selected columns from the original controller CSV; command-line,
   local paths and unrelated empty metadata columns omitted. Measurement values,
-  targets, timestamps, PDO identity and raw measurement responses are retained.
+  targets, PDO identity and raw measurement responses are retained. The timestamp
+  column is present but its values are blank in this published fixture; it cannot
+  support time-paired analog comparisons.
 - comparison.json: generated comparison result. SHA256SUMS covers the CSV and
   analyzer diagnostics files (not the generated report or this README).
 
@@ -54,3 +56,15 @@ v0.4で約64秒の記録とPD区画またぎを確認しました。共通区間
 KWSとCYの時計には約0.257%の差があり、補正して比較しています。
 ASDは必要な列のみ掲載し、KWSは改行をLFへ統一しています。
 全6区画の空き、長時間動作、電源断耐性や一般的な測定精度の証明ではありません。
+
+## ASD measurement comparison
+
+The updated comparison includes an `asd` section with nine ordered outbound/
+return steps. KWS snapshots are grouped by recorded Request boundaries, with
+1 second after changed requests excluded. ASD uses phase/target groups; READY
+and STOP-wait rows are excluded. Both instruments exclude snapshots outside
+±0.5 V / ±0.05 A of target, reporting the counts. Per-step medians differ by
++12 to +15 mV and +2 to +3 mA (KWS minus ASD) in this capture. The existing
+516-packet match is unchanged. No cross-device sample-time alignment, absolute
+accuracy/calibration or transient-timing verdict follows from these medians.
+See the comparison method in [the launcher guide](../../../tools/logger-sweep/README.md).

@@ -1,5 +1,7 @@
 # kws-x1-standalone-rs
 
+> **単一ファイル受信専用ロガーv0.7候補版：** `--features logger-observer`。実機1台で単一ファイル書き込み、10回の繰り返し保存とCSV・生データ一致、55秒のAVS掃引とPD区画跨ぎを確認しました。掃引の全476パケットがCY4500と一致し、ASD-PD31との9点比較も完了しています。[日本語ガイド](docs/LOGGER-OBSERVER.ja.md)。
+
 > **このブランチは `charging-logger`（実験logger版）です。** 画面キャプチャ版の基準と既存Releaseは `main` に残します。[ブランチ方針](docs/BRANCHES.ja.md)。loggerのビルドには `--features charging-logger` が必要です。
 
 > **試作版・充電logger v0.4：** `--features charging-logger` でキャプチャ／BMP出力の代わりに、1秒間隔の電圧・電流保存、パッシブPD受信記録、USB経由のCSV出力を組み込みます。1台で約64秒のAVS掃引とPD区画またぎ、CY4500との共通区間516パケット一致を確認済みです。[日本語ガイド](docs/CHARGING-LOGGER.ja.md)／[英語ガイド（正本）](docs/CHARGING-LOGGER.md)／[検証記録](docs/LOGGER-VALIDATION.md)。通常ビルドは従来のキャプチャ版です。logger版のRelease配布ファイルはまだ公開していません。

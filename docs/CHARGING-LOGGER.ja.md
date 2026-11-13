@@ -1,5 +1,8 @@
 # 充電logger v0.3（試作版）
 
+> 現在の保存・命名仕様は[observer v0.7](LOGGER-OBSERVER.ja.md)を参照してください。以下のv0.4仕様・実機結果は旧版の記録です。
+
+
 [English（正本）](CHARGING-LOGGER.md) · [日本語](CHARGING-LOGGER.ja.md)
 
 キャプチャと排他のビルドです。`--features charging-logger` を指定すると、

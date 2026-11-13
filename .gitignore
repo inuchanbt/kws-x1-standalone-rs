@@ -2,3 +2,7 @@
 /build/
 /dist/
 __pycache__/
+
+# Local runs/backups; curated regression captures live in tests/data.
+/CY4500_logs/
+/log_backup/

@@ -54,7 +54,7 @@ def decode(paths):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("inputs", nargs="+", help="LOG*.CSV paths or wildcard patterns from one export")
+    parser.add_argument("inputs", nargs="+", help="VI*.CSV and PD*.CSV (or legacy LOG*.CSV) from one export")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     paths = sorted({Path(p).resolve() for pattern in args.inputs for p in glob.glob(pattern)})

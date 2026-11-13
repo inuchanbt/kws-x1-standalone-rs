@@ -22,6 +22,8 @@ bench = false
 [features]
 # Exclusive charging logger variant; screenshot capture/export is replaced.
 charging-logger = []
+# Dedicated observation build: passive PD only; no trigger GPIO/task or PD sink.
+logger-observer = ["charging-logger"]
 i2c-rx-poll-diagnostic = ["embassy-hc32/i2c-rx-poll-diagnostic"]
 # Hold Rd without starting a sink session; no GoodCRC or transmit.
 pd-hold-diagnostic = []

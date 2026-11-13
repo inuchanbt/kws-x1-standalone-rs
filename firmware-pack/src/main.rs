@@ -321,6 +321,32 @@ fn whole_words(mut bytes: Vec<u8>) -> Vec<u8> {
     bytes
 }
 
+/// Leave the compressed group as high as possible for in-place main expansion.
+/// Upper-only retains its compact placement; complete and main-only use the
+/// same unread-data protection, with final acceptance still decided by rehearse.
+fn packed_start(stage: Stage, unpacker: usize, upper: usize, main: usize) -> Result<usize> {
+    let minimum = unpacker.next_multiple_of(4);
+    let streams = upper.checked_add(main).context("Packed size overflow")?;
+    let required = minimum
+        .checked_add(streams)
+        .context("Release size overflow")?;
+    ensure!(
+        required <= APP_LIMIT,
+        "The release exceeds the application space by {} bytes",
+        required.saturating_sub(APP_LIMIT)
+    );
+    let start = if matches!(stage, Stage::Main | Stage::Complete) {
+        (APP_LIMIT - streams) & !3
+    } else {
+        minimum
+    };
+    ensure!(
+        start >= minimum,
+        "The compressed stream overlaps the unpacker"
+    );
+    Ok(start)
+}
+
 /// A release's application image: the unpacker, its record filled in, then
 /// the upper and main streams. Returns it with the main firmware's checks.
 fn release(
@@ -359,16 +385,9 @@ fn release(
     } else {
         deflate(&main)?
     };
-    // With no preceding upper stream, move the main stream up in flash so
-    // the unpacker can safely overwrite the earlier application sectors.
-    let stream_start = if stage == Stage::Main {
-        APP_LIMIT
-            .checked_sub(main_packed.len())
-            .context("The main stream exceeds the application space")?
-            & !3
-    } else {
-        unpacker_bytes.next_multiple_of(size_of::<u32>())
-    };
+    // Tail-align complete/main-only packed data so in-place expansion has
+    // the maximum room before reaching unread compressed bytes.
+    let stream_start = packed_start(stage, unpacker_bytes, upper_packed.len(), main_packed.len())?;
     ensure!(
         stream_start >= unpacker_bytes,
         "The compressed stream overlaps the unpacker"
@@ -564,5 +583,28 @@ fn main() -> std::process::ExitCode {
             tracing::error!("{error:#}");
             std::process::ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod placement_tests {
+    use super::*;
+    #[test]
+    fn complete_uses_tail_space_without_changing_other_stages() {
+        let (u, main) = (14794, 119973);
+        let start = packed_start(Stage::Complete, 15340, u, main).unwrap();
+        assert_eq!(start, 75148);
+        assert_eq!(start + u + main, APP_LIMIT - 1);
+        assert_eq!(packed_start(Stage::Upper, 15340, u, 0).unwrap(), 15340);
+        assert_eq!(
+            packed_start(Stage::Main, 15340, 0, main).unwrap(),
+            (APP_LIMIT - main) & !3
+        );
+    }
+    #[test]
+    fn excessive_sizes_fail_before_any_subtraction_or_output() {
+        assert!(packed_start(Stage::Complete, 15340, 78859, 127832).is_err());
+        assert!(packed_start(Stage::Complete, 1, usize::MAX, 10).is_err());
+        assert!(packed_start(Stage::Complete, 15340, 0, APP_LIMIT).is_err());
     }
 }

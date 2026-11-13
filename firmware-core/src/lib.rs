@@ -32,3 +32,4 @@ pub use pd_protocol::{pd_cable, pd_cable_details, pd_cable_modes, pd_partner, pd
 pub mod pd_spr;
 
 pub mod charging_log;
+pub mod observer;

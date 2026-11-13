@@ -1,0 +1,80 @@
+{
+  "headers_crc_valid": true,
+  "records_crc_valid": true,
+  "csv_matches_storage": true,
+  "csv_files": 2,
+  "sessions": 1,
+  "vi_samples": 56,
+  "pd_fragments": 706,
+  "complete_pd_packets": 476,
+  "incomplete_packets": 0,
+  "queue_drop_notices": 0,
+  "sniffer_stop_notices": 0,
+  "blank_sectors": 3,
+  "used_bytes": 12240,
+  "blank_bytes": 36912,
+  "sector_details": [
+    {
+      "sector": 1,
+      "kind": "VI",
+      "format": "XLG2",
+      "first_session": 1,
+      "last_session": 1,
+      "committed_slots": 56,
+      "data_rows": 56,
+      "session_markers": [],
+      "blank_bytes": 7280
+    },
+    {
+      "sector": 2,
+      "kind": "PD",
+      "format": "XLE2",
+      "first_session": 1,
+      "last_session": 1,
+      "committed_slots": 511,
+      "data_rows": 511,
+      "session_markers": [],
+      "blank_bytes": 0
+    },
+    {
+      "sector": 3,
+      "kind": "PD",
+      "format": "XLE2",
+      "first_session": 1,
+      "last_session": 1,
+      "committed_slots": 195,
+      "data_rows": 195,
+      "session_markers": [],
+      "blank_bytes": 5056
+    },
+    {
+      "sector": 4,
+      "kind": "FREE",
+      "blank_bytes": 8192
+    },
+    {
+      "sector": 5,
+      "kind": "FREE",
+      "blank_bytes": 8192
+    },
+    {
+      "sector": 6,
+      "kind": "FREE",
+      "blank_bytes": 8192
+    }
+  ],
+  "firmware_candidate_sha256": "86c2f7b4a0e07cdc7befc3231f33c4deb457466cfc016b48c3400c2f9f9cc537",
+  "raw_dump_size": 49152,
+  "raw_dump_sha256": "1fdc1c164e7ce097a8ef18a4b6c9f8770ea675e769f4aa09a6a8ae3bd18b89ef",
+  "raw_dump_published": false,
+  "user_confirmed_clear_before_capture": true,
+  "boundary_event": {
+    "event_id": 345,
+    "elapsed_ms": 40545,
+    "header_sector": 2,
+    "header_offset": 8176,
+    "payload_sector": 3,
+    "payload_offset": 16
+  },
+  "limitation": "Device-specific raw dump retained locally; these CRC/layout results cannot be independently repeated from the public fixture alone. Digital/analog comparison is reproducible from the included CSVs."
+}

@@ -1,0 +1,4 @@
+*.csv -text
+*.CSV -text
+*.json -text
+*.TXT -text

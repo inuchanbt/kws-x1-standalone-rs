@@ -477,3 +477,35 @@ command.
 No flashing, probing or other device I/O is authorized by a build or migration.
 Any hardware operation requires explicit approval; programming requires the
 exact image and hash. `--info` is device I/O, not an offline validation command.
+
+
+### Observation-only logger candidate
+
+The logger-observer feature starts a separate PD receive-only task after three
+PASS slider samples. No active sink future, PD command dispatch or QC/SCP/FCP/AFC
+trigger object/task is used. The D+/D- output group is initialized undriven.
+A detected switch to sink stops receiving and requires reconnection in PASS.
+Old active boot/resume settings are sanitized before tasks start. Navigation
+uses passthrough availability even before a slider observation is published.
+These source/host checks do not certify physical absence of transmitted frames.
+
+Complete-stage packages tail-align the packed upper/main group inside the same
+APP_LIMIT. The unchanged main_erase_margin guard is rehearsed for every output
+sector. A package fitting numerically is rejected if unread bytes would be
+erased. The single-file installation is still not atomic; v0.5 installation was reported successful once; interrupted-update recovery
+remains untested. v0.7 journal/USB export is verified across ten short sessions on one device.
+A later sweep verifies physical PD-sector continuation, all raw CRCs/CSV rows,
+476 matched CY packets and nine ASD analog steps on that same device.
+
+### Logger V2 session journals
+
+Only the six existing `[0x62000,0x6e000)` sectors are written. XLG2/XLE2 can
+append CRC-last session markers and records into a verified entirely blank
+tail of the latest stream sector. Legacy tails and torn record tails are never
+rewritten; a new sector is used instead. Logging never erases. The confirmed
+clear recognizes V1/V2 headers with valid CRC, retaining unknown data protection.
+Session IDs are limited to 32 between clears; the read-only FAT12 view combines
+physical segments into up to 64 VI/PD files. Diagnostics consume no log flash.
+The V2 journal/USB export was verified across ten short sessions on one device
+with all CSV rows matching CRC-valid raw storage. A later sweep verifies physical PD-sector continuation and 476 matched CY
+packets on that device; long-term storage remains a separate device check.

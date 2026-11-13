@@ -52,3 +52,5 @@ The former `1209:0001` builds are for private testing.
 Logger CSV export uses the same read-only MSC transport and shared-ID policy; it does not add a HID interface.
 
 充電logger版の製品文字列は `KWS-X1 Logger` です。CSV出力も同じ読み取り専用MSC方式と共有ID方針を使用し、HIDインターフェースは追加しません。
+
+The logger-observer feature uses product string `KWS-X1 Observer` on the same read-only shared-ID MSC interface.

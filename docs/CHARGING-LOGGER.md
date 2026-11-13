@@ -1,5 +1,8 @@
 # Charging logger v0.3 — experimental exclusive variant
 
+> Current storage/naming update: [observer v0.7](LOGGER-OBSERVER.md) uses shared-tail journals and paired VI/PD files. The v0.4 format and hardware results below are historical.
+
+
 [English (primary)](CHARGING-LOGGER.md) · [日本語](CHARGING-LOGGER.ja.md)
 
 Build with `--features charging-logger`. Without that feature, the existing

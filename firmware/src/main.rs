@@ -696,6 +696,7 @@ async fn held_high(tilt: &embassy_hc32::exti::ExtiInput) -> bool {
 /// other scan publishes `None` for temperature. Without a request it releases
 /// D+/D−.
 #[embassy_executor::task]
+#[cfg(not(feature = "logger-observer"))]
 async fn line_task(mut adc: line_adc::LineAdc, mut trigger: qc_drive::Trigger) {
     let lines_sender = LINE_VOLTAGES.sender();
     let reference_sender = ADC_REFERENCE.sender();
@@ -782,6 +783,43 @@ async fn line_task(mut adc: line_adc::LineAdc, mut trigger: qc_drive::Trigger) {
             METER_READ_PERIOD
         })
         .await;
+    }
+}
+
+/// Observation-only ADC/D- reception. No trigger object or transmit update exists.
+#[cfg(feature = "logger-observer")]
+#[embassy_executor::task]
+async fn line_task(mut adc: line_adc::LineAdc) {
+    QC_STATUS.sender().send(qc_drive::Status::Off);
+    let mut listen_after = Instant::now();
+    loop {
+        if dm_sniff::take_storm() {
+            listen_after = Instant::now() + STORM_BACKOFF;
+        }
+        adc.listen(Instant::now() >= listen_after);
+        let view = BUTTON_STATE.try_get().map(|input| input.page.view());
+        let temperature = matches!(
+            view,
+            Some(View::Detail {
+                page: Detail::System,
+                ..
+            })
+        );
+        let scan =
+            if temperature || view.is_some_and(|view| view.shows_lines() || view == View::Ripple) {
+                adc.read(temperature).await
+            } else {
+                None
+            };
+        LINE_VOLTAGES.sender().send(scan.map(|(lines, _, _)| lines));
+        ADC_REFERENCE
+            .sender()
+            .send(scan.map(|(_, reference, _)| reference));
+        TEMPERATURE.sender().send(
+            scan.and_then(|(_, _, count)| count)
+                .and_then(firmware_core::temperature::estimate_c),
+        );
+        Timer::after(METER_READ_PERIOD).await;
     }
 }
 
@@ -883,11 +921,17 @@ async fn button_task(
             raw = button_logic::swap_arrows(raw);
         }
         // Selecting needs a sink session that has received the charger's offer.
-        let observation = latest_observation();
-        navigation.set_selectable(observation.spr.is_some() && observation.capabilities.is_some());
-        navigation.set_passthrough(observation.pc13_high == Some(true));
-        navigation.set_cable_test(observation.listen.is_some(), observation.cable_test);
-        navigation.set_silent(observation.quick_charge, observation.silent_settled);
+        #[cfg(not(feature = "logger-observer"))]
+        {
+            let observation = latest_observation();
+            navigation
+                .set_selectable(observation.spr.is_some() && observation.capabilities.is_some());
+            navigation.set_passthrough(observation.pc13_high == Some(true));
+            navigation.set_cable_test(observation.listen.is_some(), observation.cable_test);
+            navigation.set_silent(observation.quick_charge, observation.silent_settled);
+        }
+        #[cfg(feature = "logger-observer")]
+        firmware_core::observer::navigation(&mut navigation);
         if let Some((_, view)) = DETAIL_VIEW.try_get() {
             navigation.set_list_end(view.end);
         }
@@ -993,7 +1037,7 @@ async fn button_task(
         };
         // The PD session drains these between transactions; a full queue
         // drops the press, as a missed tap would.
-        if let Some(command) = command {
+        if let Some(command) = command.filter(|_| !cfg!(feature = "logger-observer")) {
             if command == firmware_core::buttons::PdCommand::QueryCable {
                 CABLE_ASKED.store(true, Ordering::Relaxed);
             }
@@ -1890,7 +1934,16 @@ async fn meter_task(
                 unsafe { screenshot::capture_report(result) };
             } else {
                 #[cfg(feature = "charging-logger")]
-                ui::draw_capture_status(&mut Canvas(frame), logger.message());
+                ui::draw_capture_status(
+                    &mut Canvas(frame),
+                    if cfg!(feature = "logger-observer")
+                        && latest_observation().pc13_high == Some(false)
+                    {
+                        "OBS: PASS + RECONNECT"
+                    } else {
+                        logger.message()
+                    },
+                );
                 if capture_notice.is_some() {
                     use screenshot::Status;
                     let message = match capture_status {
@@ -2169,6 +2222,8 @@ async fn main(spawner: Spawner) {
     // session's start window, when the charger asks the cable question.
     let (mut store, saved) = settings_store::Store::open();
     let mut settings = saved.unwrap_or_default();
+    #[cfg(feature = "logger-observer")]
+    firmware_core::observer::sanitize(&mut settings);
     let requested = settings.next_boot;
     let resume = settings.resume;
     let qc_findings = settings.qc_findings;
@@ -2210,6 +2265,7 @@ async fn main(spawner: Spawner) {
     let backlight_pwm;
     let line_adc;
     let mut ripple_adc;
+    #[cfg(not(feature = "logger-observer"))]
     let qc_trigger;
     let tilt_input;
     let pd_input;
@@ -2234,7 +2290,18 @@ async fn main(spawner: Spawner) {
         ripple_adc = ripple::new().await.ok();
         // PB3, PB4, PB8 and PB9 (free after the JTAG release) drive D+/D−
         // only for the Quick Charge page.
-        qc_trigger = qc_drive::Trigger::new();
+        #[cfg(not(feature = "logger-observer"))]
+        {
+            qc_trigger = qc_drive::Trigger::new();
+        }
+        #[cfg(feature = "logger-observer")]
+        {
+            // Reclaim inherited pin state with outputs disabled; never construct
+            // a trigger or hand these pins to a transmitting task.
+            let mut released =
+                embassy_hc32::gpio::OutputGroup::new_high_drive(Port::B, [8, 3, 9, 4]);
+            released.drive([None; 4]);
+        }
 
         // The INTC is not reset by a jump into this image, so a bootloader or an
         // earlier image can leave `SEL` entries mapped; `register` then refuses
@@ -2417,7 +2484,10 @@ async fn main(spawner: Spawner) {
     }
     spawner.spawn(pulse_task().expect(ONE_SPAWN));
     spawner.spawn(tilt_task(tilt_input).expect(ONE_SPAWN));
+    #[cfg(not(feature = "logger-observer"))]
     spawner.spawn(line_task(line_adc, qc_trigger).expect(ONE_SPAWN));
+    #[cfg(feature = "logger-observer")]
+    spawner.spawn(line_task(line_adc).expect(ONE_SPAWN));
     spawner.spawn(ripple::run(ripple_adc, clocks.pclk[2]).expect(ONE_SPAWN));
     if !CAPTURE_DIAGNOSTIC {
         #[cfg(not(feature = "charging-logger"))]

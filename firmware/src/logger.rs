@@ -59,6 +59,8 @@ pub struct Writer {
     pd_base: usize,
     pd_index: usize,
     event_id: u32,
+    vi_pending: bool,
+    pd_pending: bool,
     start: u64,
     next: u64,
     session: u32,
@@ -75,13 +77,15 @@ impl Writer {
             pd_base: 0,
             pd_index: 0,
             event_id: 0,
+            vi_pending: false,
+            pd_pending: false,
             start: 0,
             next: 0,
             session: 0,
             segment: 0,
             base: 0,
             index: 0,
-            message: "LOGGER READY - HOLD L+R",
+            message: ready_message(),
         }
     }
     pub fn message(&self) -> &'static str {
@@ -97,29 +101,45 @@ impl Writer {
             self.message = "LOGGER STOPPING";
             return;
         }
+        let vi = tail(false);
+        let pd = tail(true);
+        let needed = usize::from(vi.is_none()) + usize::from(pd.is_none());
+        let free = (START..END)
+            .step_by(flash::SECTOR)
+            .filter(|&b| available(b))
+            .count();
+        if free < needed {
+            self.message = "LOGGER FULL - COPY/CLEAR";
+            return;
+        }
         let latest = (START..END)
             .step_by(flash::SECTOR)
-            .filter_map(|b| format::valid_header(bytes(b)))
+            .map(|b| format::latest_session(bytes(b)))
             .max()
             .unwrap_or(0);
-        let Some(session) = latest.checked_add(1) else {
+        if latest >= format::MAX_SESSIONS {
             self.message = "LOGGER SESSION LIMIT";
             return;
-        };
+        }
+        let session = latest + 1;
         while EVENTS.try_receive().is_ok() {}
         DROPPED.store(0, Ordering::Relaxed);
         self.stopping = false;
-        self.pd_base = 0;
-        self.pd_index = 0;
+        (self.pd_base, self.pd_index) = pd.unwrap_or((0, 0));
+        self.pd_pending = pd.is_some();
         self.event_id = 0;
         self.session = session;
         self.segment = 0;
-        self.base = 0;
-        self.index = 0;
+        (self.base, self.index) = vi.unwrap_or((0, 0));
+        self.vi_pending = vi.is_some();
         self.start = now;
         self.next = now;
         self.active = true;
-        self.message = "LOGGER REC 1s - L+R STOP";
+        self.message = if cfg!(feature = "logger-observer") {
+            "OBS REC 1s - L+R STOP"
+        } else {
+            "LOGGER REC 1s - L+R STOP"
+        };
         RECORDING.store(true, Ordering::Relaxed);
     }
     pub async fn sample(&mut self, now: u64, reading: Option<(u32, i32)>) {
@@ -135,6 +155,10 @@ impl Writer {
                 self.fail("LOGGER TIME LIMIT");
                 return;
             };
+            if elapsed == u32::MAX {
+                self.fail("LOGGER TIME LIMIT");
+                return;
+            }
             if self.event_id == 0x00ff_ffff {
                 self.fail("LOGGER EVENT LIMIT");
                 return;
@@ -145,7 +169,7 @@ impl Writer {
             let remaining = if self.pd_base == 0 {
                 0
             } else {
-                format::SAMPLES - self.pd_index
+                format::SAMPLES - self.pd_index - usize::from(self.pd_pending)
             };
             if !format::packet_fits(
                 remaining,
@@ -170,6 +194,10 @@ impl Writer {
             self.fail("LOGGER TIME LIMIT");
             return;
         };
+        if elapsed == u32::MAX {
+            self.fail("LOGGER TIME LIMIT");
+            return;
+        }
         if dropped != 0 && !self.append(true, format::record(elapsed, 8, dropped as i32)) {
             return;
         }
@@ -196,17 +224,34 @@ impl Writer {
         } else {
             (self.base, self.index)
         };
+        let pending = if event {
+            self.pd_pending
+        } else {
+            self.vi_pending
+        };
+        if pending {
+            if !commit(
+                base,
+                base + format::HEADER + index * format::RECORD,
+                format::session_marker(self.session),
+            ) {
+                self.fail("LOGGER WRITE FAILED");
+                return false;
+            }
+            index += 1;
+            if event {
+                self.pd_pending = false;
+            } else {
+                self.vi_pending = false;
+            }
+        }
         if base == 0 || index == format::SAMPLES {
             let Some(free) = (START..END).step_by(flash::SECTOR).find(|&b| available(b)) else {
                 self.fail("LOGGER FULL - COPY/CLEAR");
                 return false;
             };
             base = free;
-            let h = if event {
-                format::event_header(self.session, self.segment)
-            } else {
-                format::header(self.session, self.segment)
-            };
+            let h = format::journal_header(self.session, self.segment, event);
             if !commit(base, base, h) {
                 self.fail("LOGGER WRITE FAILED");
                 return false;
@@ -240,6 +285,44 @@ fn available(base: usize) -> bool {
     let meta = legacy + 3 * flash::SECTOR - 20;
     !(flash::read(meta) == 0x3143_5358 && flash::read(meta + 4) == 0xd9a2_651e)
         && flash::blank(base)
+}
+/// The latest sector of each stream is the only append candidate. A torn tail
+/// seals that sector; a later header starts a fresh segment without overwriting it.
+fn tail(event: bool) -> Option<(usize, usize)> {
+    let base = (START..END)
+        .step_by(flash::SECTOR)
+        .filter(|&b| {
+            format::valid_header(bytes(b)).is_some() && format::is_event(bytes(b)) == event
+        })
+        .max_by_key(|&b| {
+            (
+                format::latest_session(bytes(b)),
+                flash::read(b + 4),
+                flash::read(b + 8),
+                b,
+            )
+        })?;
+    format::reusable_tail(bytes(base), event).map(|index| (base, index))
+}
+fn ready_message() -> &'static str {
+    let needed = usize::from(tail(false).is_none()) + usize::from(tail(true).is_none());
+    let free = (START..END)
+        .step_by(flash::SECTOR)
+        .filter(|&b| available(b))
+        .count();
+    if (START..END)
+        .step_by(flash::SECTOR)
+        .map(|b| format::latest_session(bytes(b)))
+        .max()
+        .unwrap_or(0)
+        >= format::MAX_SESSIONS
+    {
+        "LOGGER SESSION LIMIT"
+    } else if free >= needed {
+        "READY - HOLD L+R"
+    } else {
+        "LOGGER FULL - COPY/CLEAR"
+    }
 }
 fn commit(base: usize, at: usize, words: [u32; 4]) -> bool {
     // No erase during logging. Commit/checksum is a separate final operation.
