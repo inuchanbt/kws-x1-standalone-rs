@@ -30,7 +30,7 @@ mod protocol;
 mod qc_drive;
 mod single_wire_drive;
 
-#[cfg(feature = "capture-reclaim")]
+#[cfg(any(feature = "capture-reclaim", feature = "charging-logger"))]
 mod capture_reclaim;
 mod pd_service;
 mod pd_sniff;
@@ -974,7 +974,7 @@ async fn button_task(
         if command == Some(firmware_core::buttons::PdCommand::Restart) {
             restart_pending = true;
         }
-        let command = if restart_pending {
+        let command= if restart_pending {
             if matches!(
                 qc_updates.try_get(),
                 Some(
@@ -1998,7 +1998,7 @@ async fn clear_screenshots(inputs: &[InputPin; 4], reclaim: bool) {
             "RECLAIM 5 SECTORS?"
         } else {
             if cfg!(feature = "charging-logger") {
-                "ERASE LOGS+CAPTURES?"
+                "CLEAR LOG+BACKED DATA?"
             } else {
                 "ERASE ALL CAPTURES?"
             }

@@ -1,0 +1,19 @@
+{
+  "samples": 65,
+  "last_sample_ms": 64042,
+  "sample_interval_ms": [
+    918,
+    1085
+  ],
+  "kws_packets": 552,
+  "cy_packets": 540,
+  "request_count": 8,
+  "matched_overlap_packets": 516,
+  "unmatched_kws_in_overlap": 0,
+  "unmatched_cy_in_overlap": 0,
+  "clock_scale": 0.9974274688545098,
+  "clock_offset_ms": 4104.67811075435,
+  "max_residual_ms": 6.359147296127048,
+  "notices": [],
+  "limitation": "One capture; matching uses type, MessageID and payload, not analog waveform/CRC or role bits. Clock fit is not calibration."
+}

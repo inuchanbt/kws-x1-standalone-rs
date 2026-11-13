@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "host_time": "2026-11-13T18:54:09.925+09:00",
+  "host_monotonic": 283078.0,
+  "transfer_callback_supported": true,
+  "counts": {
+    "saved_transfers": 141,
+    "raw_records": 542,
+    "decoder_flag_mismatches": 0,
+    "valid_sop": 540,
+    "crc_error": 0,
+    "eop_error": 0,
+    "idle_error": 0,
+    "requests": 8,
+    "ps_rdy": 8
+  },
+  "format": "xfers: uint32LE length + exact data-bearing EP81 transfer; records: raw64-byte records and decoded metadata. Idle transfer markers are not supplied by the upstream transfer callback.",
+  "meaning": "Receive-error flags originate in CY4500 metadata. Missing source frames are not reconstructed or accepted as valid."
+}

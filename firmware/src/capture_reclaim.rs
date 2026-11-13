@@ -33,7 +33,10 @@ const fn nibble(byte: u8) -> u8 {
 }
 
 pub const ENABLED: bool = EXPECTED.is_some();
-#[unsafe(link_section = ".rodata.capture_reclaim_hash")]
+#[cfg_attr(
+    not(feature = "charging-logger"),
+    unsafe(link_section = ".rodata.capture_reclaim_hash")
+)]
 static FINGERPRINTS: Fingerprints = match EXPECTED {
     Some(hashes) => hashes,
     None => [[0; 32]; BASES.len()],
@@ -42,6 +45,7 @@ static FINGERPRINTS: Fingerprints = match EXPECTED {
 /// # Safety
 /// The capture boot must have exclusive flash access and have confirmed on
 /// the LCD and at nominal USB voltage before calling this function.
+#[cfg(not(feature = "charging-logger"))]
 pub unsafe fn erase_backed_up() -> &'static str {
     if !ENABLED {
         return "RECLAIM DISABLED";
@@ -82,10 +86,47 @@ fn set_hash_gate(pwc: &hc32f460_pac::pwc::RegisterBlock, gated: bool) {
     });
 }
 
+/// In confirmed logger clear boot, authorize only exact backup matches.
+/// Known log/capture owners are handled separately; unknown sectors stay intact.
+#[cfg(feature = "charging-logger")]
+pub fn logger_backup_mask(owned: [bool; 6]) -> Option<u8> {
+    if !ENABLED {
+        return Some(0);
+    }
+    let pwc = unsafe { &*Pwc::ptr() };
+    let gated = pwc.fcg0().read().hash().bit_is_set();
+    set_hash_gate(pwc, false);
+    let result = (|| {
+        if pwc.fcg0().read().hash().bit_is_set()
+            || digest(&[0; 64])?
+                != parse_digest(b"f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b")
+        {
+            return None;
+        }
+        let mut mask = 0;
+        for (i, base) in BASES.into_iter().enumerate() {
+            if owned[i] || flash::blank(base) {
+                continue;
+            }
+            let bytes = unsafe { &*(base as *const [u8; SECTOR]) };
+            if digest(bytes)? == FINGERPRINTS[i] {
+                mask |= 1 << i;
+            }
+        }
+        Some(mask)
+    })();
+    set_hash_gate(pwc, gated);
+    result
+}
+
 // Called only from the verified upper image's maintenance path. Keep the
 // hash preflight together so the low flash image can still fit its container.
 #[inline(never)]
-#[unsafe(link_section = ".text.capture_reclaim_hash")]
+#[cfg_attr(
+    not(feature = "charging-logger"),
+    unsafe(link_section = ".text.capture_reclaim_hash")
+)]
+#[cfg(not(feature = "charging-logger"))]
 fn check_all(expected: &Fingerprints) -> Option<u8> {
     const TEST_DIGEST: [u8; 32] =
         parse_digest(b"f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b");
@@ -131,7 +172,10 @@ const fn parse_digest(hex: &[u8; 64]) -> [u8; 32] {
 /// SHA-256 of whole blocks. Register order and byte order follow the HC32F460
 /// HASH chapter and the vendor DDL. START self-clears after each block.
 #[inline(never)]
-#[unsafe(link_section = ".text.capture_reclaim_hash")]
+#[cfg_attr(
+    not(feature = "charging-logger"),
+    unsafe(link_section = ".text.capture_reclaim_hash")
+)]
 fn digest(bytes: &[u8]) -> Option<[u8; 32]> {
     const START: u32 = 1;
     const FIRST: u32 = 2;

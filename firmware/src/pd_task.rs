@@ -1,4 +1,4 @@
-//! The PD task: selects sink or passthrough mode at boot, then runs the sink
+//! The PD task: selects sink or passthrough mode at boot, then runs thesink
 //! session or the receive-only sniffer and keeps publishing the observation.
 
 use core::sync::atomic::Ordering;
@@ -258,6 +258,8 @@ async fn sniff(observation: &mut pd::Observation, released: pd::Snapshot) {
                         changed = true;
                     }
                     if let pd_service::Outcome::Packet(packet) = outcome {
+                        #[cfg(feature = "charging-logger")]
+                        crate::screenshot::pd_packet(packet.bytes());
                         view.record(&packet.frame());
                         changed = true;
                     }
@@ -274,6 +276,8 @@ async fn sniff(observation: &mut pd::Observation, released: pd::Snapshot) {
             publish_observation(*observation);
         }
     }
+    #[cfg(feature = "charging-logger")]
+    crate::screenshot::pd_stopped();
     observation.sniff = Some(view);
     publish_observation(*observation);
 }

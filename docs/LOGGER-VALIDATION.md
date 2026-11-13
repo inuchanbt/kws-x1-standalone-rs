@@ -1,5 +1,47 @@
 # Charging logger validation — 2026-11-13
 
+
+## v0.4 hardware comparison — 2026-11-13
+
+The user installed the v0.4 pair and completed the AVS sweep. The attached
+KWS CSVs contain 65 samples through 64.042 s, plus 552 complete packets across
+two event sectors. The common CY4500 interval has 516 one-to-one matches of
+type, MessageID and payload after clock-scale/offset fitting; all eight
+voltage-change sequences match. No incomplete packets or queue notices occur.
+This confirms continuation beyond the previous 40-second limit. It does not
+establish that all six sectors were free or qualify maximum recording duration.
+
+[Published data, conditions, limitations and reproduction](../tests/data/logger-avs-20261113/README.md).
+
+日本語：約64秒の記録とPD区画またぎ、共通区間516パケットの一致を確認しました。
+全6区画の空きや最大記録時間を実証したものではありません。
+
+## Historical v0.3 candidate — 2026-11-13 (not yet hardware-tested)
+
+- One-second scheduled samples; passive RX events use the same elapsed clock.
+- 40 firmware-core host tests passed, including deadline drift/missed slots,
+  unsigned event CSV export, random block reads and torn event tails.
+- Python decoder test passed: cross-sector reconstruction, missing payload,
+  unsigned data, MessageID, queue/stop diagnostics and duplicate-input rejection.
+- Charging-logger ARM release build passed; default screenshot configuration
+  passed `cargo check`. Existing unused capture-UI warnings remain in logger builds.
+- Both X1C stages passed packer audits against the matching firmware/unpacker ELF.
+  Runtime main: 198,368 bytes; upper: 122,680 bytes (200 bytes spare).
+- Artifacts: `build/charging-logger-v0.3`, with SHA256SUMS and audit output.
+  No device flashing, release upload, commit or push is part of this validation.
+- Pending: AVS sweep with CY4500-EPR, actual 1-second cadence, queue draining at
+  stop, FULL during PD packets, hardware FIFO/flash contention, and power cuts.
+  Queue diagnostics do not cover every possible reception loss.
+
+| v0.3 file | SHA-256 |
+| --- | --- |
+| firmware-upper.X1C | `f6700c70275b2cca87e334eab57c2deb26af8f2381f051d03e28c47f7ba6f4d7` |
+| firmware.X1C | `71ac3c72edbff021db2bb2a590084952ea2f79e966ef6c3faa1331049419b1ed` |
+
+日本語：v0.3の1秒記録・パッシブPD保存はビルドとホスト検証を通過しました。
+実機への書き込みとCY4500-EPRでの照合はこれからです。以下の実機結果はv0.2の記録です。
+
+
 [English guide](CHARGING-LOGGER.md) · [日本語ガイド](CHARGING-LOGGER.ja.md)
 
 Scope: experimental logger v0.2 on one user-operated KWS-X1. Flashing and
@@ -89,3 +131,22 @@ is not implemented.
 CY4500-EPRには2回のREQUEST→ACCEPT→PS_RDYと各GoodCRCが記録され、CSVの電圧変化と整合します。
 ただし両時刻は非同期です。PDイベントとフラッシュ書き込みの同時性、内部受信の無欠落、
 長時間・満杯・書き込み／消去中の電源断は未検証です。測定器間の差を校正誤差と断定していません。
+
+
+## v0.4 storage recovery (2026-11-13)
+
+- Observed KWS export: sample sector 05 (41 rows through 40.036 s), event sector
+  06 (511 rows through 40.457 s, final packet incomplete). The CY4500/ASD sweep
+  completed all eight changes. Four unavailable sectors are consistent with
+  preserved original data; their current bytes are not contained in the CSVs.
+- Clear previously reported success with any free sector. v0.4 reports the exact
+  free count and extends confirmed clear only to exact backup SHA-256 matches.
+- Direct charging_log module tests: 9 passed, including backup-mask policy,
+  whole-packet capacity checks, six-sector FAT export and interrupted records.
+- firmware-core package host tests passed; Python decoder split-packet test passed.
+- ARM release build passed. Matching upper/main images, package audits and flasher
+  dry runs passed in build/charging-logger-v0.4. Fingerprints are recorded there.
+- New hash routines use main flash in the logger build to remain within the
+  existing upper-code boundary. No storage/code/factory boundaries were enlarged.
+- Hardware has not been flashed. Verify CLEARED - 6/6 FREE and a complete sweep
+  after installation; do not treat host tests as verification of physical erase.

@@ -1,6 +1,8 @@
 # kws-x1-standalone-rs
 
-> **Experimental charging logger v0.2:** build with `--features charging-logger` to replace screenshot capture/BMP export with on-device voltage/current recording and USB CSV export. A short hardware recording and CSV export were verified on one KWS-X1; see the [English guide](docs/CHARGING-LOGGER.md), [Japanese guide](docs/CHARGING-LOGGER.ja.md), and [validation record](docs/LOGGER-VALIDATION.md). The default build remains the screenshot variant. No logger release assets have been published.
+> **Branch: `charging-logger` — experimental logger development.** The screenshot baseline and established releases stay on `main`. See [branch policy](docs/BRANCHES.md). Logger builds require `--features charging-logger`.
+
+> **Experimental charging logger v0.4:** build with `--features charging-logger` to replace screenshot capture/BMP export with 1-second voltage/current recording, passive PD RX logging and USB CSV export. A 64-second AVS sweep on one KWS-X1 verified event-sector rollover and 516 matching packets in the CY4500 overlap; see the [English guide](docs/CHARGING-LOGGER.md), [Japanese guide](docs/CHARGING-LOGGER.ja.md), and [validation record](docs/LOGGER-VALIDATION.md). The default build remains the screenshot variant. No logger release assets have been published.
 
 [日本語](README.ja.md) · [Two-stage flashing / 2段階書き込み](docs/FLASHING.md)
 
@@ -1752,7 +1754,7 @@ Sink (slider at sink, then power up from a PD charger through a cable):
    temperature needs comparison with an independent temperature reference
    and must rise as the meter warms; a plausible number alone does not
    establish sensor validity. Compare line/ripple readings and Quick Charge
-   operation before and after visiting System.
+ operation before and after visiting System.
 10. Unplug and plug the charger back in mid-session: the meter boots and
     negotiates again.
 11. A port without PD (computer USB-A, or Type-C without PD): the PD page

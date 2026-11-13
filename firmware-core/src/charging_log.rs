@@ -5,12 +5,32 @@ pub const HEADER: usize = 16;
 pub const RECORD: usize = 16;
 pub const SAMPLES: usize = (SECTOR - HEADER) / RECORD;
 pub const MAGIC: u32 = 0x31474c58; // XLG1
-pub const INTERVAL_MS: u64 = 5000;
+pub const EVENT_MAGIC: u32 = 0x31454c58; // XLE1: PD event fragments
+pub const INTERVAL_MS: u64 = 1000;
+/// Packet fragments may cross a sector, but never start a packet that cannot fit.
+pub fn packet_fits(remaining: usize, words: usize, spare: bool) -> bool {
+    words <= 8 && (words <= remaining || spare)
+}
+
+/// Exact backup matches augment recognized owners, never authorize other bytes.
+pub fn backup_clear_mask(owned: [bool; 6], matches: [bool; 5]) -> [bool; 6] {
+    core::array::from_fn(|i| owned[i] || (i < 5 && matches[i]))
+}
+/// Advance from the previous deadline; skip missed slots without catch-up bursts.
+pub fn next_deadline(previous: u64, now: u64) -> u64 {
+    previous + ((now - previous) / INTERVAL_MS + 1) * INTERVAL_MS
+}
+pub fn event_header(session: u32, segment: u32) -> [u32; 4] {
+    let mut w = [EVENT_MAGIC, session, segment, 0];
+    w[3] = checksum(&w[..3]);
+    w
+}
 pub const BLOCK_BYTES: usize = 512;
 pub const BLOCKS: u32 = 512;
 const FIRST_DATA: usize = 4; // boot, two FAT sectors, root
 const FILE_BLOCKS: usize = 48;
 const CSV_HEADER: &[u8] = b"session,elapsed_ms,voltage_mV,current_mA\r\n";
+const EVENT_CSV_HEADER: &[u8] = b"session,elapsed_ms,event_tag,raw_u32\r\n";
 const ROW: usize = 46;
 
 pub fn checksum(words: &[u32]) -> u32 {
@@ -45,7 +65,7 @@ fn words(bytes: &[u8]) -> Option<[u32; 4]> {
 }
 pub fn valid_header(bytes: &[u8]) -> Option<u32> {
     let w = words(bytes)?;
-    (w[0] == MAGIC && w[3] == checksum(&w[..3])).then_some(w[1])
+    (matches!(w[0], MAGIC | EVENT_MAGIC) && w[3] == checksum(&w[..3])).then_some(w[1])
 }
 pub fn valid_record(bytes: &[u8]) -> Option<[u32; 3]> {
     let w = words(bytes)?;
@@ -74,18 +94,25 @@ impl<'a> Disk<'a> {
     pub fn file_count(&self) -> usize {
         self.counts.iter().filter(|&&n| n != 0).count()
     }
+    fn csv_header(&self, i: usize) -> &'static [u8] {
+        if self.sectors[i].get(..4) == Some(&EVENT_MAGIC.to_le_bytes()) {
+            EVENT_CSV_HEADER
+        } else {
+            CSV_HEADER
+        }
+    }
     fn len(&self, i: usize) -> usize {
-        CSV_HEADER.len() + self.counts[i] * ROW
+        self.csv_header(i).len() + self.counts[i] * ROW
     }
     #[cfg(test)]
     fn csv_byte(&self, i: usize, offset: usize) -> u8 {
-        if offset < CSV_HEADER.len() {
-            return CSV_HEADER[offset];
+        if offset < self.csv_header(i).len() {
+            return self.csv_header(i)[offset];
         }
         if offset >= self.len(i) {
             return 0;
         }
-        let offset = offset - CSV_HEADER.len();
+        let offset = offset - self.csv_header(i).len();
         self.row(i, offset / ROW)[offset % ROW]
     }
     fn row(&self, i: usize, index: usize) -> [u8; ROW] {
@@ -101,6 +128,9 @@ impl<'a> Disk<'a> {
         let ma = w[2] as i32;
         row[33] = if ma < 0 { b'-' } else { b'+' };
         decimal(&mut row[34..44], ma.unsigned_abs());
+        if self.csv_header(i) == EVENT_CSV_HEADER {
+            decimal(&mut row[33..44], w[2]);
+        }
         row[44..].copy_from_slice(b"\r\n");
         row
     }
@@ -186,13 +216,13 @@ impl<'a> Disk<'a> {
                     let end = (start + 512).min(self.len(i));
                     let mut at = start;
                     while at < end {
-                        if at < CSV_HEADER.len() {
-                            let n = (CSV_HEADER.len() - at).min(end - at);
+                        if at < self.csv_header(i).len() {
+                            let n = (self.csv_header(i).len() - at).min(end - at);
                             block[at - start..at - start + n]
-                                .copy_from_slice(&CSV_HEADER[at..at + n]);
+                                .copy_from_slice(&self.csv_header(i)[at..at + n]);
                             at += n;
                         } else {
-                            let offset = at - CSV_HEADER.len();
+                            let offset = at - self.csv_header(i).len();
                             let row = self.row(i, offset / ROW);
                             let within = offset % ROW;
                             let n = (ROW - within).min(end - at);
@@ -223,6 +253,41 @@ fn put32(b: &mut [u8], at: usize, v: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn deadline_skips_missed_slots_without_drift() {
+        assert_eq!(next_deadline(500, 500), 1500);
+        assert_eq!(next_deadline(1500, 1588), 2500);
+        assert_eq!(next_deadline(2500, 5610), 6500);
+    }
+    #[test]
+    fn event_sectors_export_unsigned_payload_and_survive_torn_tail() {
+        let mut s = [0xff; SECTOR];
+        put(&mut s[..16], event_header(9, 2));
+        for i in 0..SAMPLES {
+            put(
+                &mut s[16 + i * 16..32 + i * 16],
+                record(1000, 256 + i as u32, -1),
+            );
+        }
+        let mut disk = Disk::new([&s, &[], &[], &[], &[], &[]]);
+        assert_eq!(
+            disk.row(0, 0),
+            *b"0000000009,0000001000,0000000256,04294967295\r\n"
+        );
+        let mut b = [0; 512];
+        for lba in (4..52).rev() {
+            disk.read(lba, &mut b);
+            for j in 0..512 {
+                assert_eq!(b[j], disk.csv_byte(0, (lba as usize - 4) * 512 + j));
+            }
+        }
+        assert!(clear_mask([&s, &[], &[], &[], &[], &[]])[0]);
+        s[SECTOR - 4..].fill(0xff);
+        assert_eq!(
+            Disk::new([&s, &[], &[], &[], &[], &[]]).counts[0],
+            SAMPLES - 1
+        );
+    }
     #[test]
     fn foreign_and_torn_headers_are_not_exported() {
         let mut s = [0xff; SECTOR];
@@ -357,6 +422,30 @@ fn capture_owner(s: &[u8], tag: u32) -> bool {
 #[cfg(test)]
 mod clear_tests {
     use super::*;
+    #[test]
+    fn packet_boundary_is_all_or_nothing() {
+        assert!(packet_fits(1, 3, true)); // continue into next sector
+        assert!(!packet_fits(1, 3, false)); // no partial header/payload
+        assert!(packet_fits(3, 3, false));
+        assert!(packet_fits(0, 8, true));
+        assert!(!packet_fits(0, 1, false));
+    }
+    #[test]
+    fn backup_matches_reclaim_only_reserved_known_bytes() {
+        // Reproduce four blocked sectors plus the measurement/event pair.
+        assert_eq!(
+            backup_clear_mask(
+                [false, false, false, false, true, true],
+                [true, true, true, true, false]
+            ),
+            [true; 6]
+        );
+        // One altered/unknown sector remains protected; repeat clear is safe.
+        assert_eq!(
+            backup_clear_mask([false; 6], [true, false, true, true, false]),
+            [true, false, true, true, false, false]
+        );
+    }
     #[test]
     fn only_recognized_owners_are_cleared() {
         let mut sectors = [[0xffu8; SECTOR]; 6];

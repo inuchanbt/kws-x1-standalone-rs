@@ -1,14 +1,64 @@
 //! Exclusive logger variant. Only the meter task owns a Writer.
 use crate::{I2C3, flash, render::Frame, ui};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use firmware_core::{buttons::Detail, charging_log as format, screenshot::CapturePage};
 const START: usize = 0x62000;
 const END: usize = 0x6e000;
 const _: () = assert!(START == firmware_image::UPPER_END as usize);
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+static RECORDING: AtomicBool = AtomicBool::new(false);
+static DROPPED: AtomicU32 = AtomicU32::new(0);
+struct Event {
+    at: u64,
+    words: [u32; 8],
+    count: usize,
+    kind: u32,
+}
+static EVENTS: Channel<CriticalSectionRawMutex, Event, 32> = Channel::new();
+/// Called only by the passive sniffer: copy checked RX bytes, never wait or write flash.
+#[inline(never)]
+pub fn pd_packet(bytes: &[u8]) {
+    if !RECORDING.load(Ordering::Relaxed) {
+        return;
+    }
+    let header = u16::from_le_bytes([bytes[1], bytes[2]]);
+    let count = usize::from((header >> 12) & 7);
+    let mut words = [0; 8];
+    words[0] = u32::from(header) | (u32::from(bytes[0] >> 5) << 16);
+    for i in 0..count {
+        words[i + 1] = u32::from_le_bytes(bytes[3 + i * 4..7 + i * 4].try_into().unwrap());
+    }
+    enqueue(Event {
+        at: embassy_time::Instant::now().as_millis(),
+        words,
+        count: count + 1,
+        kind: 0,
+    });
+}
+#[inline(never)]
+pub fn pd_stopped() {
+    if RECORDING.load(Ordering::Relaxed) {
+        enqueue(Event {
+            at: embassy_time::Instant::now().as_millis(),
+            words: [1; 8],
+            count: 1,
+            kind: 9,
+        });
+    }
+}
+fn enqueue(event: Event) {
+    if EVENTS.try_send(event).is_err() {
+        DROPPED.fetch_add(1, Ordering::Relaxed);
+    }
+}
 static TOGGLE: AtomicBool = AtomicBool::new(false);
 
 pub struct Writer {
     active: bool,
+    stopping: bool,
+    pd_base: usize,
+    pd_index: usize,
+    event_id: u32,
     start: u64,
     next: u64,
     session: u32,
@@ -21,6 +71,10 @@ impl Writer {
     pub fn new() -> Self {
         Self {
             active: false,
+            stopping: false,
+            pd_base: 0,
+            pd_index: 0,
+            event_id: 0,
             start: 0,
             next: 0,
             session: 0,
@@ -38,8 +92,9 @@ impl Writer {
             return;
         }
         if self.active {
-            self.active = false;
-            self.message = "LOGGER STOPPED - L+R START";
+            RECORDING.store(false, Ordering::Relaxed);
+            self.stopping = true;
+            self.message = "LOGGER STOPPING";
             return;
         }
         let latest = (START..END)
@@ -51,6 +106,12 @@ impl Writer {
             self.message = "LOGGER SESSION LIMIT";
             return;
         };
+        while EVENTS.try_receive().is_ok() {}
+        DROPPED.store(0, Ordering::Relaxed);
+        self.stopping = false;
+        self.pd_base = 0;
+        self.pd_index = 0;
+        self.event_id = 0;
         self.session = session;
         self.segment = 0;
         self.base = 0;
@@ -58,43 +119,116 @@ impl Writer {
         self.start = now;
         self.next = now;
         self.active = true;
-        self.message = "LOGGER REC 5s - L+R STOP";
+        self.message = "LOGGER REC 1s - L+R STOP";
+        RECORDING.store(true, Ordering::Relaxed);
     }
     pub async fn sample(&mut self, now: u64, reading: Option<(u32, i32)>) {
-        if !self.active || now < self.next {
+        if !self.active {
             return;
         }
-        self.next = now + format::INTERVAL_MS;
-        let Some((mv, ma)) = reading else {
-            return;
-        }; // timestamp gaps expose missing reads
+        // Bound each drain so the meter and PD tasks continue making progress.
+        for _ in 0..4 {
+            let Ok(event) = EVENTS.try_receive() else {
+                break;
+            };
+            let Ok(elapsed) = u32::try_from(event.at.saturating_sub(self.start)) else {
+                self.fail("LOGGER TIME LIMIT");
+                return;
+            };
+            if self.event_id == 0x00ff_ffff {
+                self.fail("LOGGER EVENT LIMIT");
+                return;
+            }
+            self.event_id += 1;
+            let bus = I2C3.lock().await;
+            // Reserve the whole packet before committing its first fragment.
+            let remaining = if self.pd_base == 0 {
+                0
+            } else {
+                format::SAMPLES - self.pd_index
+            };
+            if !format::packet_fits(
+                remaining,
+                event.count,
+                remaining < event.count && (START..END).step_by(flash::SECTOR).any(available),
+            ) {
+                self.fail("LOGGER FULL - COPY/CLEAR");
+                return;
+            }
+            for i in 0..event.count {
+                let tag = (self.event_id << 8) | (event.kind + i as u32);
+                if !self.append(true, format::record(elapsed, tag, event.words[i] as i32)) {
+                    return;
+                }
+            }
+            drop(bus);
+            embassy_time::Timer::after_millis(1).await;
+        }
+        let _bus = I2C3.lock().await;
+        let dropped = DROPPED.swap(0, Ordering::Relaxed);
         let Ok(elapsed) = u32::try_from(now - self.start) else {
             self.fail("LOGGER TIME LIMIT");
             return;
         };
-        let _bus = I2C3.lock().await;
-        if self.base == 0 || self.index == format::SAMPLES {
-            let Some(base) = (START..END).step_by(flash::SECTOR).find(|&b| available(b)) else {
-                self.fail("LOGGER FULL - COPY/CLEAR");
-                return;
-            };
-            let h = format::header(self.session, self.segment);
-            if !commit(base, base, h) {
-                self.fail("LOGGER WRITE FAILED");
-                return;
-            }
-            self.base = base;
-            self.index = 0;
-            self.segment += 1;
-        }
-        let address = self.base + format::HEADER + self.index * format::RECORD;
-        if !commit(self.base, address, format::record(elapsed, mv, ma)) {
-            self.fail("LOGGER WRITE FAILED");
+        if dropped != 0 && !self.append(true, format::record(elapsed, 8, dropped as i32)) {
             return;
         }
-        self.index += 1;
+        if self.stopping {
+            if !EVENTS.is_empty() {
+                return;
+            }
+            self.active = false;
+            self.stopping = false;
+            self.message = "LOGGER STOPPED - L+R START";
+            return;
+        }
+        if now < self.next {
+            return;
+        }
+        self.next = format::next_deadline(self.next, now);
+        if let Some((mv, ma)) = reading {
+            self.append(false, format::record(elapsed, mv, ma));
+        }
+    }
+    fn append(&mut self, event: bool, words: [u32; 4]) -> bool {
+        let (mut base, mut index) = if event {
+            (self.pd_base, self.pd_index)
+        } else {
+            (self.base, self.index)
+        };
+        if base == 0 || index == format::SAMPLES {
+            let Some(free) = (START..END).step_by(flash::SECTOR).find(|&b| available(b)) else {
+                self.fail("LOGGER FULL - COPY/CLEAR");
+                return false;
+            };
+            base = free;
+            let h = if event {
+                format::event_header(self.session, self.segment)
+            } else {
+                format::header(self.session, self.segment)
+            };
+            if !commit(base, base, h) {
+                self.fail("LOGGER WRITE FAILED");
+                return false;
+            }
+            index = 0;
+            self.segment += 1;
+        }
+        if !commit(base, base + format::HEADER + index * format::RECORD, words) {
+            self.fail("LOGGER WRITE FAILED");
+            return false;
+        }
+        if event {
+            self.pd_base = base;
+            self.pd_index = index + 1;
+        } else {
+            self.base = base;
+            self.index = index + 1;
+        }
+        true
     }
     fn fail(&mut self, message: &'static str) {
+        RECORDING.store(false, Ordering::Relaxed);
         self.active = false;
         self.message = message;
     }
@@ -126,7 +260,12 @@ pub unsafe fn export_count() -> usize {
 }
 /// Called only in the existing confirmed clear boot, before measurement/USB.
 pub unsafe fn clear_owned() -> bool {
-    let mask = format::clear_mask(core::array::from_fn(|i| bytes(START + i * flash::SECTOR)));
+    let owned = format::clear_mask(core::array::from_fn(|i| bytes(START + i * flash::SECTOR)));
+    let Some(backed_up) = crate::capture_reclaim::logger_backup_mask(owned) else {
+        return false;
+    };
+    let mask =
+        format::backup_clear_mask(owned, core::array::from_fn(|i| backed_up & (1 << i) != 0));
     for (i, base) in (START..END).step_by(flash::SECTOR).enumerate() {
         if !mask[i] {
             continue;
@@ -183,9 +322,17 @@ pub fn stage_report(
 }
 
 pub fn clear_message() -> &'static str {
-    if (START..END).step_by(flash::SECTOR).any(available) {
-        "STORAGE CLEARED"
-    } else {
-        "NO SPACE - UNKNOWN DATA"
+    match (START..END)
+        .step_by(flash::SECTOR)
+        .filter(|&b| available(b))
+        .count()
+    {
+        6 => "CLEARED - 6/6 FREE",
+        5 => "PARTIAL - 5/6 FREE",
+        4 => "PARTIAL - 4/6 FREE",
+        3 => "PARTIAL - 3/6 FREE",
+        2 => "PARTIAL - 2/6 FREE",
+        1 => "PARTIAL - 1/6 FREE",
+        _ => "NO SPACE - UNKNOWN DATA",
     }
 }
