@@ -14,7 +14,7 @@ this fingerprint. Companion ASD modules must remain compatible with that version
 
 1. Use the existing setup: SRC → cable → CY4500-EPR → KWS-X1 → ASD-PD31.
    Close other software using the ASD serial port or CY4500 USB interface.
-2. **Manually establish touch-panel OBJ9 EPR AVS, 20 V,0.5 A, LOAD ON on ASD first.**
+2. **Manually establish touch-panel OBJ9 EPR AVS, 20 V, 0.5 A, LOAD ON on ASD first.**
    Let KWS boot and confirm PD SNIFF is receiving. This launcher does not establish
    a fresh contract or recover a stopped sniffer. Do not start KWS logging yet.
 3. Run from an interactive PowerShell using the Python installation already used

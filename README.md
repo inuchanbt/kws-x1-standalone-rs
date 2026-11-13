@@ -1754,7 +1754,7 @@ Sink (slider at sink, then power up from a PD charger through a cable):
    temperature needs comparison with an independent temperature reference
    and must rise as the meter warms; a plausible number alone does not
    establish sensor validity. Compare line/ripple readings and Quick Charge
- operation before and after visiting System.
+   operation before and after visiting System.
 10. Unplug and plug the charger back in mid-session: the meter boots and
     negotiates again.
 11. A port without PD (computer USB-A, or Type-C without PD): the PD page

@@ -974,7 +974,7 @@ async fn button_task(
         if command == Some(firmware_core::buttons::PdCommand::Restart) {
             restart_pending = true;
         }
-        let command= if restart_pending {
+        let command = if restart_pending {
             if matches!(
                 qc_updates.try_get(),
                 Some(

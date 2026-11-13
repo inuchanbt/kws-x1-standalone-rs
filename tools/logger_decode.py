@@ -7,7 +7,7 @@ from pathlib import Path
 FIELDS = ["session", "elapsed_ms", "kind", "event_id", "sop", "header_hex",
           "message_id", "message_type", "extended", "data_hex", "status",
           "voltage_mV", "current_mA", "count"]
-SOP = {7: "SOP", 6: "SOP_PRIME",5: "SOP_DOUBLE_PRIME", 4: "DEBUG", 3: "DEBUG_DOUBLE_PRIME"}
+SOP = {7: "SOP", 6: "SOP_PRIME", 5: "SOP_DOUBLE_PRIME", 4: "DEBUG", 3: "DEBUG_DOUBLE_PRIME"}
 
 
 def decode(paths):

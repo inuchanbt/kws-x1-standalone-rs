@@ -1,4 +1,4 @@
-//! The PD task: selects sink or passthrough mode at boot, then runs thesink
+//! The PD task: selects sink or passthrough mode at boot, then runs the sink
 //! session or the receive-only sniffer and keeps publishing the observation.
 
 use core::sync::atomic::Ordering;
