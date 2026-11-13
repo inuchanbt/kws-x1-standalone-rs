@@ -1,6 +1,6 @@
 # Shared USB identity / 共用USB識別子
 
-Screenshot export uses Objective Development's shared **Mass Storage**
+Screenshot and charging-logger export use Objective Development's shared **Mass Storage**
 VID/PID **`16c0:27df`** under the terms in
 [`USB-IDs-for-free.txt`](https://github.com/obdev/v-usb/blob/master/usbdrv/USB-IDs-for-free.txt).
 The table lists `27df` for Mass Storage and permits implementations using
@@ -10,7 +10,7 @@ technology other than V-USB.
 |---|---|
 | VID / PID | `16c0:27df` |
 | Manufacturer, English/US (`0x0409`) | `usb.pd.epr.240w@gmail.com` |
-| Product | `KWS-X1 Screenshot` |
+| Product | `KWS-X1 Screenshot` (default) or `KWS-X1 Logger` (`charging-logger` feature) |
 | Interface class / subclass / protocol | Mass Storage / SCSI / Bulk-Only (`08/06/50`) |
 | Host driver | Operating system's standard USB storage driver |
 
@@ -48,3 +48,7 @@ The former `1209:0001` builds are for private testing.
 
 この番号は共用で、個別のPID申請をせずに上記条件で利用できます。ファーム書き込み用の
 元のブートローダーは `1105:000a` で動作します。
+
+Logger CSV export uses the same read-only MSC transport and shared-ID policy; it does not add a HID interface.
+
+充電logger版の製品文字列は `KWS-X1 Logger` です。CSV出力も同じ読み取り専用MSC方式と共有ID方針を使用し、HIDインターフェースは追加しません。

@@ -1,5 +1,7 @@
 # kws-x1-standalone-rs
 
+> **試作版・充電logger v0.2：** `--features charging-logger` でキャプチャ／BMP出力の代わりに、電圧・電流の本体保存とUSB経由のCSV出力を組み込みます。KWS-X1 1台で短時間の記録とCSV取り出しを確認済みです。[日本語ガイド](docs/CHARGING-LOGGER.ja.md)／[英語ガイド（正本）](docs/CHARGING-LOGGER.md)／[検証記録](docs/LOGGER-VALIDATION.md)。通常ビルドは従来のキャプチャ版です。logger版のRelease配布ファイルはまだ公開していません。
+
 [English README](README.md) · [Windowsでの2段階書き込み](docs/FLASHING.md#日本語)
 
 KOWSI KWS-X1 USB-C 電力計向けの非公式Rustファームウェアです。このフォークは [kralonur版](https://github.com/kralonur/kws-x1-standalone-rs) をベースに、画面キャプチャの本体保存とUSB取り出しを追加しています。既存のUSBブートローダーを使ってアプリ部分を書き換えます。

@@ -36,7 +36,20 @@ mod pd_service;
 mod pd_sniff;
 mod render;
 mod ripple;
+#[cfg(not(feature = "charging-logger"))]
 mod screenshot;
+#[cfg(feature = "charging-logger")]
+#[path = "logger.rs"]
+mod screenshot;
+#[cfg(all(
+    feature = "charging-logger",
+    any(
+        feature = "capture-probe",
+        feature = "capture-backup",
+        feature = "capture-reclaim"
+    )
+))]
+compile_error!("charging-logger cannot be combined with capture diagnostics/reclaim");
 mod settings_store;
 mod storage_diag;
 mod ui;
@@ -65,6 +78,7 @@ use firmware_core::buttons as button_logic;
 use firmware_core::calibration::{Average, Calibration, Mean};
 use firmware_core::energy::{Totals, Tracker};
 use firmware_core::power_history::{self, History};
+#[cfg(not(feature = "charging-logger"))]
 use firmware_core::screenshot_disk::Disk;
 use firmware_core::settings::{
     AfcFindings, FcpFindings, NextBoot, QcFindings, Rotation, ScpFindings, Screen,
@@ -832,7 +846,8 @@ async fn button_task(
         let arrows = raw & CAPTURE_ARROWS;
         if arrows == CAPTURE_ARROWS && capture_hold != u8::MAX {
             if capture_hold == 0 {
-                report_hold = matches!(navigation.page().view(), View::Detail { .. });
+                report_hold = !cfg!(feature = "charging-logger")
+                    && matches!(navigation.page().view(), View::Detail { .. });
             }
             let limit = if report_hold {
                 REPORT_SAMPLES
@@ -1174,6 +1189,8 @@ async fn meter_task(
     let detail_sender = DETAIL_VIEW.sender();
     let mut frame_time = WindowPeak::new(&FRAME_MS);
     let mut frame_shown = None;
+    #[cfg(feature = "charging-logger")]
+    let mut logger = screenshot::Writer::new();
     let mut capture_status = screenshot::Status::Idle;
     let mut capture_notice = None;
 
@@ -1193,6 +1210,12 @@ async fn meter_task(
 
     loop {
         let now = Instant::now();
+        #[cfg(feature = "charging-logger")]
+        {
+            let old = logger.message();
+            logger.handle_request(now.as_millis());
+            dirty |= old != logger.message();
+        }
         let report_requested = match screenshot::take_request() {
             Some(screenshot::Kind::Report) => true,
             Some(screenshot::Kind::Screen) => {
@@ -1320,6 +1343,12 @@ async fn meter_task(
             }
             METER_MEAN.sender().send(average.mean());
             let read_ms = Instant::now().as_millis();
+            #[cfg(feature = "charging-logger")]
+            {
+                let old = logger.message();
+                logger.sample(read_ms, sample.map(|r| (r.mv, r.ma))).await;
+                changed |= old != logger.message();
+            }
             energy.sample(
                 read_ms,
                 sample.map(|reading| (reading.mv, reading.ma)),
@@ -1860,6 +1889,8 @@ async fn meter_task(
                 // SAFETY: no rendering or panel transfer borrows the idle frame.
                 unsafe { screenshot::capture_report(result) };
             } else {
+                #[cfg(feature = "charging-logger")]
+                ui::draw_capture_status(&mut Canvas(frame), logger.message());
                 if capture_notice.is_some() {
                     use screenshot::Status;
                     let message = match capture_status {
@@ -1966,7 +1997,11 @@ async fn clear_screenshots(inputs: &[InputPin; 4], reclaim: bool) {
         if reclaim {
             "RECLAIM 5 SECTORS?"
         } else {
-            "ERASE ALL CAPTURES?"
+            if cfg!(feature = "charging-logger") {
+                "ERASE LOGS+CAPTURES?"
+            } else {
+                "ERASE ALL CAPTURES?"
+            }
         },
         "Hold OK 2s   BACK cancels",
     );
@@ -2008,7 +2043,14 @@ async fn clear_screenshots(inputs: &[InputPin; 4], reclaim: bool) {
         let result: Option<&str> = None;
         result.unwrap_or_else(|| {
             if unsafe { screenshot::clear_owned() } {
-                "CAPTURES CLEARED"
+                #[cfg(feature = "charging-logger")]
+                {
+                    screenshot::clear_message()
+                }
+                #[cfg(not(feature = "charging-logger"))]
+                {
+                    "CAPTURES CLEARED"
+                }
             } else {
                 "CLEAR FAILED"
             }
@@ -2307,7 +2349,9 @@ async fn main(spawner: Spawner) {
                     // The panel transfer is complete. The disk can use SRAM2
                     // to expand one picture at a time for USB block reads.
                     // Build the record table after the await so it stays off the main task's static storage.
+                    #[cfg(not(feature = "charging-logger"))]
                     let records = screenshot::export_records();
+                    #[cfg(not(feature = "charging-logger"))]
                     let disk = Disk::new(
                         &records,
                         &mut *framebuffer().cast(),
@@ -2315,6 +2359,8 @@ async fn main(spawner: Spawner) {
                     );
                     #[cfg(feature = "capture-backup")]
                     let disk = disk.with_flash_snapshot(screenshot::export_flash_snapshot());
+                    #[cfg(feature = "charging-logger")]
+                    let disk = screenshot::export_disk();
                     usb_export::run(clocks.hclk, disk);
                 }
             }
@@ -2374,6 +2420,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(line_task(line_adc, qc_trigger).expect(ONE_SPAWN));
     spawner.spawn(ripple::run(ripple_adc, clocks.pclk[2]).expect(ONE_SPAWN));
     if !CAPTURE_DIAGNOSTIC {
+        #[cfg(not(feature = "charging-logger"))]
         spawner.spawn(screenshot::save_task().expect(ONE_SPAWN));
     }
     spawner.spawn(button_task(button_inputs, store, settings, requested, resume).expect(ONE_SPAWN));

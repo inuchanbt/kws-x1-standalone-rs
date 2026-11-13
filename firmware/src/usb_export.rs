@@ -1,5 +1,8 @@
 //! USB Mass Storage Bulk-Only Transport, with a single read-only SCSI disk.
 
+#[cfg(feature = "charging-logger")]
+use firmware_core::charging_log::{BLOCK_BYTES, BLOCKS, Disk};
+#[cfg(not(feature = "charging-logger"))]
 use firmware_core::screenshot_disk::{BLOCK_BYTES, BLOCKS, Disk};
 use usb_device::{UsbError, class_prelude::*, device::UsbRev, prelude::*};
 
@@ -358,7 +361,11 @@ pub unsafe fn run(hclk: u32, disk: Disk<'_>) -> ! {
             .unwrap()
             .strings(&[StringDescriptors::default()
                 .manufacturer("usb.pd.epr.240w@gmail.com")
-                .product("KWS-X1 Screenshot")])
+                .product(if cfg!(feature = "charging-logger") {
+                    "KWS-X1 Logger"
+                } else {
+                    "KWS-X1 Screenshot"
+                })])
             .unwrap()
             .max_power(100)
             .unwrap()

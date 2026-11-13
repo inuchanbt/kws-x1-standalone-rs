@@ -2815,7 +2815,20 @@ pub fn draw_usb_export<D: DrawTarget<Color = Rgb565>>(
 ) {
     if at_usb_voltage {
         if count == 0 {
-            notice(target, "USB SCREENSHOTS", "no saved screenshots", CYAN);
+            notice(
+                target,
+                if cfg!(feature = "charging-logger") {
+                    "USB CHARGING LOGS"
+                } else {
+                    "USB SCREENSHOTS"
+                },
+                if cfg!(feature = "charging-logger") {
+                    "no saved logs"
+                } else {
+                    "no saved screenshots"
+                },
+                CYAN,
+            );
         } else {
             let mut detail = *b"000 on the KWS X1 drive";
             detail[0] += (count / 100) as u8;
@@ -2823,7 +2836,16 @@ pub fn draw_usb_export<D: DrawTarget<Color = Rgb565>>(
             detail[2] += (count % 10) as u8;
             let start = usize::from(count < 100) + usize::from(count < 10);
             let detail = core::str::from_utf8(&detail[start..]).expect("ASCII screenshot count");
-            notice(target, "USB SCREENSHOTS", detail, CYAN);
+            notice(
+                target,
+                if cfg!(feature = "charging-logger") {
+                    "USB CHARGING LOGS"
+                } else {
+                    "USB SCREENSHOTS"
+                },
+                detail,
+                CYAN,
+            );
         }
     } else {
         notice(target, "USB NEEDS 5V", "connect the meter to a PC", YELLOW);

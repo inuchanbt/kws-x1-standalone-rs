@@ -1,5 +1,7 @@
 # kws-x1-standalone-rs
 
+> **Experimental charging logger v0.2:** build with `--features charging-logger` to replace screenshot capture/BMP export with on-device voltage/current recording and USB CSV export. A short hardware recording and CSV export were verified on one KWS-X1; see the [English guide](docs/CHARGING-LOGGER.md), [Japanese guide](docs/CHARGING-LOGGER.ja.md), and [validation record](docs/LOGGER-VALIDATION.md). The default build remains the screenshot variant. No logger release assets have been published.
+
 [日本語](README.ja.md) · [Two-stage flashing / 2段階書き込み](docs/FLASHING.md)
 
 Open Rust firmware for the **KOWSI KWS-X1** USB-C power meter. It replaces the

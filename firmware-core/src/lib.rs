@@ -30,3 +30,5 @@ pub mod temperature;
 pub use fusb302_pd::{pd_rx, pd_sniff};
 pub use pd_protocol::{pd_cable, pd_cable_details, pd_cable_modes, pd_partner, pd_svids};
 pub mod pd_spr;
+
+pub mod charging_log;
