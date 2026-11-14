@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, ensure};
-use firmware_image::{self as image, APP_BASE, CONTAINER_PREFIX, MARKER_OFFSET};
+use firmware_image::{self as image, APP_BASE, CONTAINER_PREFIX, MARKER_OFFSET, link};
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
@@ -9,6 +9,8 @@ pub struct Plan {
     pub payload: Vec<u8>,
     pub digest: String,
     pub sectors: u8,
+    /// A one-step file's upper region.
+    pub upper: Option<Vec<u8>>,
 }
 
 impl Plan {
@@ -23,9 +25,11 @@ impl Plan {
             digest == confirmed,
             "Image SHA-256 is {digest}, not the confirmed {confirmed}"
         );
-        image::verify_container(&data)
+        let (container, upper) = link::split(&data)
+            .map_err(|_| anyhow::anyhow!("Invalid upper section after the container"))?;
+        image::verify_container(container)
             .map_err(|error| anyhow::anyhow!("Invalid container: {error:?}"))?;
-        let payload = &data[CONTAINER_PREFIX.len()..];
+        let payload = &container[CONTAINER_PREFIX.len()..];
         ensure!(
             payload.len() <= (ERASE_CEILING - APP_BASE) as usize,
             "Payload exceeds the application erase envelope"
@@ -43,6 +47,7 @@ impl Plan {
             payload: payload.to_vec(),
             digest,
             sectors: u8::try_from(sectors)?,
+            upper: upper.map(<[u8]>::to_vec),
         })
     }
 }

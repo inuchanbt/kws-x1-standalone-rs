@@ -13,6 +13,8 @@ MEMORY
    * inside it; SRAM3 (ECC errata) stays unused.
    */
   RAM : ORIGIN = 0x20000000, LENGTH = 0x1FF00
+  /* SRAMH: the RAM code, so SRAM1 + SRAM2 keep room for the stack. */
+  RAMCODE : ORIGIN = 0x1FFF9000, LENGTH = 0x7000
 }
 
 /* Inserted before .text so these patterns claim the sections first. */
@@ -29,7 +31,7 @@ SECTIONS
     *(.text .text.* .rodata .rodata.*);
     . = ALIGN(4);
     __eramcode = .;
-  } > RAM AT> FLASH
+  } > RAMCODE AT> FLASH
 } INSERT BEFORE .text;
 
 __siramcode = LOADADDR(.ramcode);

@@ -2,10 +2,10 @@ use anyhow::{Context, Result, ensure};
 use clap::{Parser, Subcommand, ValueEnum};
 use firmware_image::{
     self as image, APP_BASE, APP_LIMIT, CONTAINER_PREFIX, ERASE_CEILING, EXTENDED_PAYLOAD_LEN,
-    SECTOR_BYTES, UPPER_BASE, UPPER_END, UPPER_ID_MAGIC, UPPER_ID_UNSET,
+    SECTOR_BYTES, UPPER_BASE, UPPER_END, UPPER_ID_MAGIC, UPPER_ID_UNSET, link,
     packed::{
-        DICT_BYTES, PACKED_MAGIC, PACKED_UNSET, Packed, Stream, WINDOW_BYTES, filter_thumb_bl,
-        inflate_sectors, main_erase_margin,
+        DICT_BYTES, PACKED_MAGIC, PACKED_UNSET, Packed, Stream, UPPER_OVER_USB, WINDOW_BYTES,
+        filter_thumb_bl, inflate_sectors, main_erase_margin,
     },
     region_hash,
 };
@@ -86,6 +86,15 @@ enum Stage {
     Upper,
     /// Check the preinstalled upper region, then install the main firmware.
     Main,
+    /// One file: the main-stage container, then the upper region sent over USB.
+    Usb,
+}
+
+impl Stage {
+    /// The container carries no upper stream.
+    fn main_only(self) -> bool {
+        matches!(self, Stage::Main | Stage::Usb)
+    }
 }
 
 /// What the container holds: a plain application image, or a release
@@ -124,6 +133,9 @@ struct Release {
     /// The least distance between a main firmware sector the unpacker
     /// erases and the stream bytes it has yet to read.
     erase_margin_bytes: usize,
+    /// Upper region bytes after the container, sent over USB (`--stage usb`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    usb_upper_bytes: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -327,7 +339,7 @@ fn release(
     firmware: &[u8],
     unpacker: &[u8],
     stage: Stage,
-) -> Result<(Vec<u8>, Application, Release)> {
+) -> Result<(Vec<u8>, Application, Release, Vec<u8>)> {
     let (main, upper) = split(firmware).context("Splitting the firmware")?;
     let (mut main, upper) = (whole_words(main), whole_words(upper));
     ensure!(!upper.is_empty(), "The firmware has no upper region");
@@ -349,7 +361,7 @@ fn release(
     );
     let unpacker_bytes = content.len();
     check_unpacker(&content)?;
-    let upper_packed = if stage == Stage::Main {
+    let upper_packed = if stage.main_only() {
         Vec::new()
     } else {
         deflate(&upper)?
@@ -361,7 +373,7 @@ fn release(
     };
     // With no preceding upper stream, move the main stream up in flash so
     // the unpacker can safely overwrite the earlier application sectors.
-    let stream_start = if stage == Stage::Main {
+    let stream_start = if stage.main_only() {
         APP_LIMIT
             .checked_sub(main_packed.len())
             .context("The main stream exceeds the application space")?
@@ -386,7 +398,11 @@ fn release(
         record.data,
         record.upper.len,
         record.upper.hash,
-        record.upper.packed,
+        if stage == Stage::Usb {
+            UPPER_OVER_USB
+        } else {
+            record.upper.packed
+        },
         record.main.len,
         record.main.hash,
         record.main.packed,
@@ -403,7 +419,7 @@ fn release(
         "The release exceeds the application space by {} bytes. Pack --stage upper and --stage main from the same build",
         content.len() - APP_LIMIT
     );
-    if stage != Stage::Main {
+    if !stage.main_only() {
         rehearse(&upper_packed, &upper, None)?;
     }
     let erase_margin_bytes = if stage == Stage::Upper {
@@ -419,8 +435,9 @@ fn release(
         upper_packed_bytes: upper_packed.len(),
         upper_unused_bytes: (UPPER_END - UPPER_BASE) as usize - upper.len(),
         erase_margin_bytes,
+        usb_upper_bytes: (stage == Stage::Usb).then_some(upper.len()),
     };
-    Ok((content, application, release))
+    Ok((content, application, release, upper))
 }
 
 /// The unpacker starts on its own stack in its RAM, at a Thumb reset
@@ -444,9 +461,9 @@ fn check_unpacker(unpacker: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// The container for `source`, with its report.
+/// The file for `source`, with its report.
 fn prepare(source: &Source, stage: Stage) -> Result<(Vec<u8>, Report)> {
-    let (content, application, release) = match source {
+    let (content, application, release, upper) = match source {
         Source { app: Some(app), .. } => {
             let mut app = fs::read(app).context("Reading application")?;
             ensure!(
@@ -459,7 +476,7 @@ fn prepare(source: &Source, stage: Stage) -> Result<(Vec<u8>, Report)> {
                 "This build runs code from the upper region; pack its ELF with --firmware and --unpacker"
             );
             let application = check_application(&app)?;
-            (app, application, None)
+            (app, application, None, Vec::new())
         }
         Source {
             firmware: Some(firmware),
@@ -468,8 +485,8 @@ fn prepare(source: &Source, stage: Stage) -> Result<(Vec<u8>, Report)> {
         } => {
             let firmware = fs::read(firmware).context("Reading firmware ELF")?;
             let unpacker = fs::read(unpacker).context("Reading unpacker ELF")?;
-            let (content, application, release) = release(&firmware, &unpacker, stage)?;
-            (content, application, Some(release))
+            let (content, application, release, upper) = release(&firmware, &unpacker, stage)?;
+            (content, application, Some(release), upper)
         }
         _ => anyhow::bail!("Pass --app, or --firmware with --unpacker"),
     };
@@ -484,6 +501,14 @@ fn prepare(source: &Source, stage: Stage) -> Result<(Vec<u8>, Report)> {
         .map_err(|error| anyhow::anyhow!("Building container: {error:?}"))?;
     image::verify_container(&container)
         .map_err(|error| anyhow::anyhow!("Invalid generated container: {error:?}"))?;
+    if stage == Stage::Usb {
+        container.extend_from_slice(&link::section_header(&upper));
+        container.extend_from_slice(&upper);
+        ensure!(
+            link::split(&container).is_ok_and(|(_, found)| found == Some(&upper[..])),
+            "Invalid generated upper section"
+        );
+    }
     let report = Report {
         sha256: digest(&container),
         payload_bytes: EXTENDED_PAYLOAD_LEN,
@@ -535,7 +560,9 @@ fn run(args: Args) -> Result<()> {
                 "Image SHA-256 is {actual}, not the confirmed {confirm_sha256}"
             );
             let (expected, mut report) = prepare(&source, stage)?;
-            image::verify_container(&candidate)
+            let (container, _) = link::split(&candidate)
+                .map_err(|_| anyhow::anyhow!("Invalid upper section after the container"))?;
+            image::verify_container(container)
                 .map_err(|error| anyhow::anyhow!("Invalid container: {error:?}"))?;
             ensure!(
                 candidate == expected,

@@ -19,8 +19,9 @@ use cortex_m_rt::entry;
 use embassy_hc32::gpio::{Level, OutputPin, Port};
 use firmware_image::{
     APP_BASE, APP_LIMIT, ERASE_CEILING, REGION_HASH_START, UPPER_BASE, UPPER_END,
+    link::Receiver,
     packed::{
-        PACKED_MAGIC, PACKED_UNSET, Packed, Stream, WINDOW_BYTES, inflate_sectors,
+        PACKED_MAGIC, PACKED_UNSET, Packed, Stream, UPPER_OVER_USB, WINDOW_BYTES, inflate_sectors,
         main_erase_margin,
     },
     region_hash, region_hash_update,
@@ -31,6 +32,13 @@ use panic_halt as _;
 #[path = "../flash.rs"]
 #[allow(dead_code)]
 mod flash;
+
+#[path = "../clock_setup.rs"]
+mod clock_setup;
+#[path = "../install_link.rs"]
+mod install_link;
+#[path = "../usb_bus.rs"]
+mod usb_bus;
 
 use flash::{BLANK, SECTOR, program_blank, read};
 
@@ -92,22 +100,25 @@ fn main() -> ! {
     let mut backlight =
         unsafe { OutputPin::new_high_drive(BACKLIGHT_PORT, BACKLIGHT_PIN, Level::High) };
     let mut window = [0; WINDOW_BYTES];
-    if let Some(packed) = record() {
+    if let Some((packed, over_usb)) = record() {
         let has_upper = packed.upper.packed != 0;
         let has_main = packed.main.packed != 0;
         let upper_intact = if has_upper {
             intact(stream(&packed, Part::Upper), packed.upper, &mut window)
         } else {
-            // SAFETY: record checked the length against the fixed upper region.
-            let installed = unsafe {
-                core::slice::from_raw_parts(UPPER_BASE as *const u8, packed.upper.len as usize)
-            };
-            region_hash(installed) == packed.upper.hash
+            installed(&packed)
         };
-        if upper_intact
-            && (!has_main || intact(stream(&packed, Part::Main), packed.main, &mut window))
-            && (!has_upper || install_upper(&packed, &mut window))
-        {
+        let main_intact =
+            !has_main || intact(stream(&packed, Part::Main), packed.main, &mut window);
+        let upper_ready = main_intact
+            && if has_upper {
+                upper_intact && install_upper(&packed, &mut window)
+            } else if over_usb {
+                receive_upper(&packed, upper_intact, &mut window)
+            } else {
+                upper_intact
+            };
+        if upper_ready {
             if !has_main {
                 // Stage one is complete. Two short flashes followed by a
                 // steady backlight tell the user to re-enter the bootloader.
@@ -132,10 +143,14 @@ fn main() -> ! {
 
 /// The filled record, when its streams are whole words inside this image
 /// and their regions.
-fn record() -> Option<Packed> {
+fn record() -> Option<(Packed, bool)> {
     // SAFETY: a read of an initialized static; volatile so the placeholder
     // values are never folded in place of what the packer wrote.
-    let packed = unsafe { core::ptr::read_volatile(&PACKED) };
+    let mut packed = unsafe { core::ptr::read_volatile(&PACKED) };
+    let over_usb = packed.upper.packed == UPPER_OVER_USB;
+    if over_usb {
+        packed.upper.packed = 0;
+    }
     let streams_end = (packed.data as usize)
         .checked_add(packed.upper.packed as usize)?
         .checked_add(packed.main.packed as usize)?;
@@ -149,7 +164,41 @@ fn record() -> Option<Packed> {
         && packed.upper.len <= UPPER_END - UPPER_BASE
         && packed.main.len.is_multiple_of(4)
         && packed.main.len as usize <= APP_LIMIT;
-    fits.then_some(packed)
+    fits.then_some((packed, over_usb))
+}
+
+/// The installed upper region is this image's.
+fn installed(packed: &Packed) -> bool {
+    // SAFETY: record checked the length against the fixed upper region.
+    let region =
+        unsafe { core::slice::from_raw_parts(UPPER_BASE as *const u8, packed.upper.len as usize) };
+    region_hash(region) == packed.upper.hash
+}
+
+/// One-step image: take the upper region from the flasher. Not inlined, to free its stack.
+#[inline(never)]
+fn receive_upper(packed: &Packed, present: bool, window: &mut [u8; WINDOW_BYTES]) -> bool {
+    // SAFETY: interrupts are off and nothing else owns the clocks or USB.
+    let clocks = unsafe {
+        install_link::sram_waits();
+        clock_setup::init()
+    };
+    let Ok(clocks) = clocks else {
+        return present;
+    };
+    let mut receiver = Receiver::new(packed.upper.len as usize, packed.upper.hash, present);
+    // SAFETY: as above.
+    unsafe {
+        install_link::serve(
+            clocks.hclk,
+            &mut receiver,
+            &mut window[..SECTOR],
+            |offset, bytes| {
+                write_sector(UPPER_BASE as usize + offset, bytes, UPPER_BASE..UPPER_END)
+            },
+            || installed(packed),
+        )
+    }
 }
 
 enum Part {
