@@ -1,0 +1,2 @@
+# Preserve measurement bytes and checksums on hosts using core.autocrlf.
+* -text

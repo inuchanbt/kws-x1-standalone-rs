@@ -1,0 +1,26 @@
+{
+  "mode": "screen",
+  "hold_seconds": [
+    3.6,
+    3.6,
+    4.2,
+    4.0,
+    3.6,
+    4.4,
+    3.8,
+    4.2,
+    4.0
+  ],
+  "targets": [
+    20,
+    22,
+    24,
+    26,
+    28,
+    26,
+    24,
+    22,
+    20
+  ],
+  "reason": "Per-run dwell timing makes accidental cross-run clock fits detectable; all holds remain at least three seconds."
+}

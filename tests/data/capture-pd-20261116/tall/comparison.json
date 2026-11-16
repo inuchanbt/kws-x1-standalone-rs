@@ -1,0 +1,614 @@
+{
+  "expected_mode": "tall",
+  "run": {
+    "sector": "0x62000",
+    "mode": "tall",
+    "start_ms": 52411,
+    "end_ms": 112464,
+    "total_received": 520,
+    "goodcrc_count": 260,
+    "keepalive_count": 236,
+    "dropped_trace_events": 0,
+    "requests": 8,
+    "saved": 8,
+    "save_failures": 0,
+    "events": [
+      {
+        "ms": 52411,
+        "event": "start",
+        "id": 2,
+        "value": 0
+      },
+      {
+        "ms": 59729,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 9353,
+        "msg_id": 2,
+        "data": "0ae046b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 59733,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 2979,
+        "msg_id": 5,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 59734,
+        "event": "capture_request",
+        "id": 1,
+        "value": 2
+      },
+      {
+        "ms": 59734,
+        "event": "prepare_begin",
+        "id": 1,
+        "value": 0
+      },
+      {
+        "ms": 59741,
+        "event": "prepare_end",
+        "id": 1,
+        "value": 0
+      },
+      {
+        "ms": 59741,
+        "event": "save_begin",
+        "id": 1,
+        "value": 0
+      },
+      {
+        "ms": 59776,
+        "event": "save_end",
+        "id": 1,
+        "value": 7
+      },
+      {
+        "ms": 60393,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 3494,
+        "msg_id": 6,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 66294,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 8329,
+        "msg_id": 0,
+        "data": "0a8047b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 66297,
+        "event": "capture_request",
+        "id": 2,
+        "value": 2
+      },
+      {
+        "ms": 66297,
+        "event": "prepare_begin",
+        "id": 2,
+        "value": 0
+      },
+      {
+        "ms": 66298,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 2467,
+        "msg_id": 4,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 66305,
+        "event": "prepare_end",
+        "id": 2,
+        "value": 0
+      },
+      {
+        "ms": 66305,
+        "event": "save_begin",
+        "id": 2,
+        "value": 0
+      },
+      {
+        "ms": 66339,
+        "event": "save_end",
+        "id": 2,
+        "value": 7
+      },
+      {
+        "ms": 66959,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 2982,
+        "msg_id": 5,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 72459,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 10889,
+        "msg_id": 5,
+        "data": "0a2048b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 72463,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 1443,
+        "msg_id": 2,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 72490,
+        "event": "capture_request",
+        "id": 3,
+        "value": 2
+      },
+      {
+        "ms": 72490,
+        "event": "prepare_begin",
+        "id": 3,
+        "value": 0
+      },
+      {
+        "ms": 72496,
+        "event": "prepare_end",
+        "id": 3,
+        "value": 0
+      },
+      {
+        "ms": 72496,
+        "event": "save_begin",
+        "id": 3,
+        "value": 0
+      },
+      {
+        "ms": 72531,
+        "event": "save_end",
+        "id": 3,
+        "value": 7
+      },
+      {
+        "ms": 73124,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 1958,
+        "msg_id": 3,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 78248,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 8841,
+        "msg_id": 1,
+        "data": "0ac048b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 78252,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 4003,
+        "msg_id": 7,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 78257,
+        "event": "capture_request",
+        "id": 4,
+        "value": 2
+      },
+      {
+        "ms": 78257,
+        "event": "prepare_begin",
+        "id": 4,
+        "value": 0
+      },
+      {
+        "ms": 78262,
+        "event": "prepare_end",
+        "id": 4,
+        "value": 0
+      },
+      {
+        "ms": 78262,
+        "event": "save_begin",
+        "id": 4,
+        "value": 0
+      },
+      {
+        "ms": 78299,
+        "event": "save_end",
+        "id": 4,
+        "value": 7
+      },
+      {
+        "ms": 78913,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 422,
+        "msg_id": 0,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 84662,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 11401,
+        "msg_id": 6,
+        "data": "0a2048b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 84665,
+        "event": "capture_request",
+        "id": 5,
+        "value": 2
+      },
+      {
+        "ms": 84665,
+        "event": "prepare_begin",
+        "id": 5,
+        "value": 0
+      },
+      {
+        "ms": 84666,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 2979,
+        "msg_id": 5,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 84673,
+        "event": "prepare_end",
+        "id": 5,
+        "value": 0
+      },
+      {
+        "ms": 84673,
+        "event": "save_begin",
+        "id": 5,
+        "value": 0
+      },
+      {
+        "ms": 84711,
+        "event": "save_end",
+        "id": 5,
+        "value": 7
+      },
+      {
+        "ms": 85326,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 3494,
+        "msg_id": 6,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 90820,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 9865,
+        "msg_id": 3,
+        "data": "0a8047b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 90824,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 1955,
+        "msg_id": 3,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 90826,
+        "event": "capture_request",
+        "id": 6,
+        "value": 2
+      },
+      {
+        "ms": 90826,
+        "event": "prepare_begin",
+        "id": 6,
+        "value": 0
+      },
+      {
+        "ms": 90832,
+        "event": "prepare_end",
+        "id": 6,
+        "value": 0
+      },
+      {
+        "ms": 90832,
+        "event": "save_begin",
+        "id": 6,
+        "value": 0
+      },
+      {
+        "ms": 90871,
+        "event": "save_end",
+        "id": 6,
+        "value": 7
+      },
+      {
+        "ms": 91484,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 2470,
+        "msg_id": 4,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 96628,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 11913,
+        "msg_id": 7,
+        "data": "0ae046b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 96632,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 419,
+        "msg_id": 0,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 96637,
+        "event": "capture_request",
+        "id": 7,
+        "value": 2
+      },
+      {
+        "ms": 96637,
+        "event": "prepare_begin",
+        "id": 7,
+        "value": 0
+      },
+      {
+        "ms": 96642,
+        "event": "prepare_end",
+        "id": 7,
+        "value": 0
+      },
+      {
+        "ms": 96642,
+        "event": "save_begin",
+        "id": 7,
+        "value": 0
+      },
+      {
+        "ms": 96682,
+        "event": "save_end",
+        "id": 7,
+        "value": 7
+      },
+      {
+        "ms": 97293,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 934,
+        "msg_id": 1,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 102803,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 10377,
+        "msg_id": 4,
+        "data": "0a4046b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 102807,
+        "event": "capture_request",
+        "id": 8,
+        "value": 2
+      },
+      {
+        "ms": 102807,
+        "event": "prepare_begin",
+        "id": 8,
+        "value": 0
+      },
+      {
+        "ms": 102807,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 3491,
+        "msg_id": 6,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 102814,
+        "event": "prepare_end",
+        "id": 8,
+        "value": 0
+      },
+      {
+        "ms": 102814,
+        "event": "save_begin",
+        "id": 8,
+        "value": 0
+      },
+      {
+        "ms": 102855,
+        "event": "save_end",
+        "id": 8,
+        "value": 7
+      },
+      {
+        "ms": 103467,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 4006,
+        "msg_id": 7,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 112464,
+        "event": "end",
+        "id": 0,
+        "value": 0
+      }
+    ]
+  },
+  "selection": {
+    "available_runs": [
+      {
+        "sector": "0x62000",
+        "mode": "tall",
+        "requests": 8,
+        "saved": 8,
+        "save_failures": 0,
+        "matched_critical_packets": 24,
+        "request_fit_max_residual_ms": 1.2265112396271434,
+        "status": "valid_trace",
+        "errors": []
+      }
+    ],
+    "selected_sector": "0x62000",
+    "method": "only committed trace; validation errors remain authoritative"
+  },
+  "comparison": {
+    "critical_packets_matched": 24,
+    "request_anchors": 8,
+    "clock_scale": 0.9969905832942235,
+    "clock_offset_ms": 49466.164203008055,
+    "request_fit_max_residual_ms": 1.2265112396271434,
+    "overlap_guard_ms": 21.226511239627143,
+    "captures": [
+      {
+        "id": 1,
+        "markers_complete": true,
+        "preparation_ms": 7,
+        "preparation_overlap_ms": 7,
+        "preparation_overlap_supported": false,
+        "saving_ms": 35,
+        "saving_overlap_ms": 35,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 2,
+        "markers_complete": true,
+        "preparation_ms": 8,
+        "preparation_overlap_ms": 8,
+        "preparation_overlap_supported": false,
+        "saving_ms": 34,
+        "saving_overlap_ms": 34,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 3,
+        "markers_complete": true,
+        "preparation_ms": 6,
+        "preparation_overlap_ms": 6,
+        "preparation_overlap_supported": true,
+        "saving_ms": 35,
+        "saving_overlap_ms": 35,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 4,
+        "markers_complete": true,
+        "preparation_ms": 5,
+        "preparation_overlap_ms": 5,
+        "preparation_overlap_supported": false,
+        "saving_ms": 37,
+        "saving_overlap_ms": 37,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 5,
+        "markers_complete": true,
+        "preparation_ms": 8,
+        "preparation_overlap_ms": 8,
+        "preparation_overlap_supported": false,
+        "saving_ms": 38,
+        "saving_overlap_ms": 38,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 6,
+        "markers_complete": true,
+        "preparation_ms": 6,
+        "preparation_overlap_ms": 6,
+        "preparation_overlap_supported": false,
+        "saving_ms": 39,
+        "saving_overlap_ms": 39,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 7,
+        "markers_complete": true,
+        "preparation_ms": 5,
+        "preparation_overlap_ms": 5,
+        "preparation_overlap_supported": false,
+        "saving_ms": 40,
+        "saving_overlap_ms": 40,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      },
+      {
+        "id": 8,
+        "markers_complete": true,
+        "preparation_ms": 7,
+        "preparation_overlap_ms": 7,
+        "preparation_overlap_supported": false,
+        "saving_ms": 41,
+        "saving_overlap_ms": 41,
+        "saving_overlap_supported": true,
+        "save_status": 7,
+        "save_status_name": "report_saved"
+      }
+    ],
+    "capture_attempts_with_supported_overlap": 8,
+    "captures_with_supported_overlap": 8,
+    "errors": [],
+    "status": "valid_trace",
+    "limitation": "Only selective PD events are individually logged. Overlap uses an affine clock fit and a 20 ms + fit-residual guard; this is not independent clock synchronization or a full packet-loss certification."
+  }
+}

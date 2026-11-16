@@ -1,5 +1,7 @@
 # kws-x1-standalone-rs
 
+> **Capture / PD validation branch (2026-11-16):** hardware results, raw evidence and experimental instrumentation for BASE / SCREEN / TALL. [Report](docs/CAPTURE-PD-VALIDATION-20261116.md) and [offline replay / build instructions](tools/capture-autotest/README.md). Default firmware behavior and upstream adoption are separate from this test feature.
+
 > **Experimental charging logger v0.2:** build with `--features charging-logger` to replace screenshot capture/BMP export with on-device voltage/current recording and USB CSV export. A short hardware recording and CSV export were verified on one KWS-X1; see the [English guide](docs/CHARGING-LOGGER.md), [Japanese guide](docs/CHARGING-LOGGER.ja.md), and [validation record](docs/LOGGER-VALIDATION.md). The default build remains the screenshot variant. No logger release assets have been published.
 
 [日本語](README.ja.md) · [Two-stage flashing / 2段階書き込み](docs/FLASHING.md)

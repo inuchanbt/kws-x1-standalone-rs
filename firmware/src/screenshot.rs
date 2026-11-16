@@ -373,6 +373,12 @@ pub unsafe fn clear_owned() -> bool {
             }
         }
     }
+    #[cfg(feature = "capture-autotest")]
+    for base in (START..END).step_by(flash::SECTOR) {
+        if crate::capture_autotest::owns(base) && !unsafe { erase_capture_sector(base) } {
+            return false;
+        }
+    }
     true
 }
 
@@ -402,6 +408,8 @@ pub unsafe fn erase_capture_sector(base: usize) -> bool {
 pub async fn save_task() {
     loop {
         let pending = READY.wait().await;
+        #[cfg(feature = "capture-autotest")]
+        crate::capture_autotest::saving(true, 0);
         // Encoder sizing and journal validation are CPU-only work on the
         // thread executor. First let any suspended meter/tilt transfer finish:
         // its 50 ms timeout still advances while this task is computing.
@@ -427,6 +435,8 @@ pub async fn save_task() {
                 }
             }
         };
+        #[cfg(feature = "capture-autotest")]
+        crate::capture_autotest::saving(false, result as u32);
         STATE.store(result as u8, Ordering::Relaxed);
     }
 }

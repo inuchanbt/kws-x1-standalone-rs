@@ -1,0 +1,25 @@
+{
+  "base_commit": "6201a9ce407e8bd72dba99e885612186d7b72fe6",
+  "tested_image_sha256": "bd38d5f2bd5ce738ac4ffa3f773812cf4ff7b1df2661a4ff77fc31ad29dab603",
+  "toolchain": {
+    "rustc_cargo": "1.99.1",
+    "host": "x86_64-pc-windows-gnu",
+    "target": "thumbv7em-none-eabihf",
+    "features": [
+      "capture-autotest"
+    ],
+    "extra_firmware_flags": [
+      "-C link-arg=--icf=all",
+      "-C llvm-args=-enable-machine-outliner=always"
+    ]
+  },
+  "checks": {
+    "offline_replay": "all three published conditions valid",
+    "analyzer_unit_tests_passed": 12,
+    "standalone_production_trace_codec_tests_passed": 2,
+    "lossless_png_conversions_pixel_verified": 16,
+    "controller_plan": "passed, no device opened",
+    "arm_release_build_and_package_audit": "passed for the hardware-tested image; audit/package/memory reports included"
+  },
+  "hardware_scope": "One KWS-X1 in OFF/PASS; ASD-PD31 actively negotiates. Eight transitions each for BASE, SCREEN and 192-pixel TALL. Active KWS sink and power-loss recovery are outside these measurements."
+}

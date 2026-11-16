@@ -1,0 +1,32 @@
+{
+  "base_commit": "6201a9ce407e8bd72dba99e885612186d7b72fe6",
+  "base_author": "nieldk; one-step-install branch",
+  "tested_image_sha256": "bd38d5f2bd5ce738ac4ffa3f773812cf4ff7b1df2661a4ff77fc31ad29dab603",
+  "observations": {
+    "baseline": {
+      "source_run": "kws_avs_uqry5xx1",
+      "distributed_snapshot": "baseline/KWS_trace_snapshot.bin",
+      "original_snapshot_sha256": "f0651c78857e45f0c1659a3c280b802748a04a0f6f2f1268fa37ce37d75bd725",
+      "distributed_snapshot_sha256": "275b7331909328a91db567ab46b99968a46c04c8161132e9a8f504f33fdbc41c",
+      "selected_trace_sector": "0x6c000",
+      "snapshot_note": "Selected 8 KiB committed trace copied verbatim at its original offset; other sectors filled with 0xff to omit unrelated earlier data. A trace-only derived snapshot."
+    },
+    "screen": {
+      "source_run": "kws_avs_d2euwgp4",
+      "distributed_snapshot": "screen/KWS_CAPFLASH.bin",
+      "original_snapshot_sha256": "cfdb16366680c0b8e6b71f2716a782f04cf0e686ac1d4c4c13899a7cb4589171",
+      "distributed_snapshot_sha256": "cfdb16366680c0b8e6b71f2716a782f04cf0e686ac1d4c4c13899a7cb4589171",
+      "selected_trace_sector": "0x62000",
+      "snapshot_note": "Complete 48 KiB device export, byte-identical to the collected source."
+    },
+    "tall": {
+      "source_run": "kws_avs__azwvlpx",
+      "distributed_snapshot": "tall/KWS_CAPFLASH.bin",
+      "original_snapshot_sha256": "6268a773de0e4bfb5632907d9ead2adfd0d67f703b39152afe56d8c553076e7a",
+      "distributed_snapshot_sha256": "6268a773de0e4bfb5632907d9ead2adfd0d67f703b39152afe56d8c553076e7a",
+      "selected_trace_sector": "0x62000",
+      "snapshot_note": "Complete 48 KiB device export, byte-identical to the collected source."
+    }
+  },
+  "scope": "KWS in OFF/PASS passthrough on one meter; ASD-PD31 negotiates EPR AVS. Route 20-22-24-26-28-26-24-22-20 V at 0.5 A; same instrumented image for all conditions."
+}

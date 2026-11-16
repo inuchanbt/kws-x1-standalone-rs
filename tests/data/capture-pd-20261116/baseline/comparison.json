@@ -1,0 +1,277 @@
+{
+  "expected_mode": "baseline",
+  "run": {
+    "sector": "0x6c000",
+    "mode": "baseline",
+    "start_ms": 42483,
+    "end_ms": 111763,
+    "total_received": 600,
+    "goodcrc_count": 300,
+    "keepalive_count": 276,
+    "dropped_trace_events": 0,
+    "requests": 8,
+    "saved": 0,
+    "save_failures": 0,
+    "events": [
+      {
+        "ms": 42483,
+        "event": "start",
+        "id": 0,
+        "value": 0
+      },
+      {
+        "ms": 48458,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 9353,
+        "msg_id": 2,
+        "data": "0ae046b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 48462,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 2979,
+        "msg_id": 5,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 49122,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 3494,
+        "msg_id": 6,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 54632,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 11913,
+        "msg_id": 7,
+        "data": "0a8047b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 54636,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 1955,
+        "msg_id": 3,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 55297,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 2470,
+        "msg_id": 4,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 60455,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 9865,
+        "msg_id": 3,
+        "data": "0a2048b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 60459,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 419,
+        "msg_id": 0,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 61119,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 934,
+        "msg_id": 1,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 66945,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 8329,
+        "msg_id": 0,
+        "data": "0ac048b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 66949,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 3491,
+        "msg_id": 6,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 67610,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 4006,
+        "msg_id": 7,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 73511,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 11401,
+        "msg_id": 6,
+        "data": "0a2048b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 73515,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 2979,
+        "msg_id": 5,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 74175,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 3494,
+        "msg_id": 6,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 79325,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 9353,
+        "msg_id": 2,
+        "data": "0a8047b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 79329,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 1443,
+        "msg_id": 2,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 79990,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 1958,
+        "msg_id": 3,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 85129,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 11401,
+        "msg_id": 6,
+        "data": "0ae046b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 85133,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 4003,
+        "msg_id": 7,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 85794,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 422,
+        "msg_id": 0,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 90919,
+        "event": "EPR_REQUEST",
+        "kind": 263,
+        "header": 9353,
+        "msg_id": 2,
+        "data": "0a4046b0f096c0d7",
+        "truncated": false
+      },
+      {
+        "ms": 90923,
+        "event": "ACCEPT",
+        "kind": 263,
+        "header": 2467,
+        "msg_id": 4,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 91583,
+        "event": "PS_RDY",
+        "kind": 263,
+        "header": 2982,
+        "msg_id": 5,
+        "data": "",
+        "truncated": false
+      },
+      {
+        "ms": 111763,
+        "event": "end",
+        "id": 0,
+        "value": 0
+      }
+    ]
+  },
+  "selection": {
+    "available_runs": [
+      {
+        "sector": "0x6c000",
+        "mode": "baseline",
+        "requests": 8,
+        "saved": 0,
+        "save_failures": 0,
+        "matched_critical_packets": 24,
+        "request_fit_max_residual_ms": 1.339359961275477,
+        "status": "valid_trace",
+        "errors": []
+      }
+    ],
+    "selected_sector": "0x6c000",
+    "method": "only committed trace; validation errors remain authoritative"
+  },
+  "comparison": {
+    "critical_packets_matched": 24,
+    "request_anchors": 8,
+    "clock_scale": 0.9969090935384295,
+    "clock_offset_ms": 42140.02333474868,
+    "request_fit_max_residual_ms": 1.339359961275477,
+    "overlap_guard_ms": 21.339359961275477,
+    "captures": [],
+    "capture_attempts_with_supported_overlap": 0,
+    "captures_with_supported_overlap": 0,
+    "errors": [],
+    "status": "valid_trace",
+    "limitation": "Only selective PD events are individually logged. Overlap uses an affine clock fit and a 20 ms + fit-residual guard; this is not independent clock synchronization or a full packet-loss certification."
+  }
+}

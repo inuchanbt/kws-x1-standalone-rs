@@ -1,0 +1,25 @@
+{
+  ".upper": {
+    "address": "0x44000",
+    "bytes": 122808
+  },
+  ".text": {
+    "address": "0x10280",
+    "bytes": 179260
+  },
+  ".data": {
+    "address": "0x1fff9000",
+    "bytes": 3752
+  },
+  ".bss": {
+    "address": "0x1fff9ea8",
+    "bytes": 44768
+  },
+  ".sram2": {
+    "address": "0x20010000",
+    "bytes": 64800
+  },
+  "_stack_end": 536890760,
+  "_stack_start": 536932096,
+  "stack_bytes": 41336
+}

@@ -1,0 +1,46 @@
+{
+  "sha256": "bd38d5f2bd5ce738ac4ffa3f773812cf4ff7b1df2661a4ff77fc31ad29dab603",
+  "payload_bytes": 210496,
+  "erase_sectors": 26,
+  "erase_envelope": [
+    65536,
+    278528
+  ],
+  "initial_sp": 536932096,
+  "reset_vector": 66177,
+  "systick_vector": 67725,
+  "custom_irq_lines": [
+    1,
+    4,
+    13,
+    31,
+    38,
+    39,
+    40,
+    41,
+    86,
+    87,
+    88,
+    110,
+    111,
+    112,
+    113,
+    116
+  ],
+  "application_bytes": 209914,
+  "application_sha256": "06389c9c0b216666deea3f76ae6b8b83e69f9589c6e5c8da75cc48856284fc11",
+  "unused_content_bytes": 2,
+  "descriptor_bytes": 16,
+  "release": {
+    "unpacker_bytes": 25964,
+    "main_bytes": 209848,
+    "main_packed_bytes": 135118,
+    "upper_bytes": 122808,
+    "upper_packed_bytes": 0,
+    "upper_unused_bytes": 72,
+    "erase_margin_bytes": 0,
+    "usb_upper_bytes": 122808
+  },
+  "candidate": "D:\\kws_x1_standalone_rs\\build\\capture-autotest-v0.1/firmware.X1C",
+  "status": "prepared, not flashed"
+}

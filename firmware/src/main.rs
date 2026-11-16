@@ -50,12 +50,21 @@ mod screenshot;
     )
 ))]
 compile_error!("charging-logger cannot be combined with capture diagnostics/reclaim");
+#[cfg(feature = "capture-autotest")]
+mod capture_autotest;
+#[cfg(feature = "capture-autotest")]
+mod capture_test_format;
 mod settings_store;
 mod storage_diag;
 mod ui;
 mod upper;
 mod usb_bus;
 mod usb_export;
+#[cfg(all(
+    feature = "capture-autotest",
+    any(feature = "charging-logger", feature = "capture-diagnostic")
+))]
+compile_error!("capture-autotest requires the normal screenshot save path");
 
 use core::ptr::addr_of_mut;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -830,6 +839,8 @@ async fn button_task(
     // A PD restart must not race an SCP control transaction or shutdown.
     let mut restart_pending = false;
     let mut capture_hold = 0u8;
+    #[cfg(feature = "capture-autotest")]
+    let mut test_chord = (0u8, None::<Instant>, false);
     let mut report_hold = false;
     let mut previous = Instant::now();
     let mut gap = WindowPeak::new(&BUTTON_GAP_MS);
@@ -841,6 +852,40 @@ async fn button_task(
             sensed_rotation = tilted;
         }
         let mut raw = button_mask(&inputs);
+        #[cfg(feature = "capture-autotest")]
+        {
+            let chord = if raw == (button_logic::BACK | button_logic::OK) || raw == CLEAR_CHORD {
+                raw
+            } else {
+                0
+            };
+            if chord != test_chord.0 {
+                test_chord = (chord, Some(now), false);
+            }
+            if chord != 0 {
+                if !test_chord.2
+                    && test_chord
+                        .1
+                        .is_some_and(|since| now.duration_since(since).as_millis() >= 1000)
+                {
+                    if chord == CLEAR_CHORD {
+                        let settings = BUTTON_STATE.try_get().map_or(saved, |input| input.settings);
+                        navigation = button_logic::Navigation::new(
+                            Page::Groups(Tab::detail(Detail::Pd)),
+                            settings,
+                        );
+                        capture_autotest::toggle();
+                    } else {
+                        capture_autotest::cycle();
+                    }
+                    test_chord.2 = true;
+                }
+                raw = 0;
+            }
+            if capture_autotest::locked() {
+                raw = 0;
+            }
+        }
         const CAPTURE_SAMPLES: u8 = (500 / button_logic::POLL_MS) as u8;
         const REPORT_SAMPLES: u8 = (2_000 / button_logic::POLL_MS) as u8;
         let arrows = raw & CAPTURE_ARROWS;
@@ -1193,6 +1238,8 @@ async fn meter_task(
     let mut logger = screenshot::Writer::new();
     let mut capture_status = screenshot::Status::Idle;
     let mut capture_notice = None;
+    #[cfg(feature = "capture-autotest")]
+    let mut test_message = "";
 
     // Without this build's upper region the pages would call the PD stack's
     // missing code: show only the notice.
@@ -1216,12 +1263,27 @@ async fn meter_task(
             logger.handle_request(now.as_millis());
             dirty |= old != logger.message();
         }
+        #[cfg(feature = "capture-autotest")]
+        {
+            capture_autotest::poll().await;
+            let message = capture_autotest::message();
+            dirty |= message != test_message;
+            test_message = message;
+        }
         let report_requested = match screenshot::take_request() {
-            Some(screenshot::Kind::Report) => true,
+            Some(screenshot::Kind::Report) => {
+                #[cfg(feature = "capture-autotest")]
+                capture_autotest::prepared(true);
+                true
+            }
             Some(screenshot::Kind::Screen) => {
+                #[cfg(feature = "capture-autotest")]
+                capture_autotest::prepared(true);
                 // SAFETY: this task owns the idle framebuffer and defers drawing
                 // while the save task borrows it.
                 unsafe { screenshot::capture_screen(frame_shown) };
+                #[cfg(feature = "capture-autotest")]
+                capture_autotest::prepared(false);
                 false
             }
             None => false,
@@ -1888,6 +1950,8 @@ async fn meter_task(
                 dirty = true;
                 // SAFETY: no rendering or panel transfer borrows the idle frame.
                 unsafe { screenshot::capture_report(result) };
+                #[cfg(feature = "capture-autotest")]
+                capture_autotest::prepared(false);
             } else {
                 #[cfg(feature = "charging-logger")]
                 ui::draw_capture_status(&mut Canvas(frame), logger.message());
@@ -1904,6 +1968,8 @@ async fn meter_task(
                     };
                     ui::draw_capture_status(&mut Canvas(frame), message);
                 }
+                #[cfg(feature = "capture-autotest")]
+                ui::draw_capture_status(&mut Canvas(frame), capture_autotest::message());
                 let frame_start = Instant::now();
                 frame_shown = unsafe { panel::flush(fb, current_rotation).await }
                     .then(|| firmware_core::screenshot::CapturePage::from_page(page));
