@@ -594,6 +594,7 @@ dependencies = [
  "microfft",
  "pd-protocol",
  "qc-protocol",
+ "serde_json",
  "single-wire-protocols",
  "u8g2-fonts",
  "usbpd",

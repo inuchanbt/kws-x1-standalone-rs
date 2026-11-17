@@ -1,6 +1,8 @@
 //! Exclusive logger variant. Only the meter task owns a Writer.
 use crate::{I2C3, flash, render::Frame, ui};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+#[cfg(feature = "selective-logger")]
+use firmware_core::selective_log;
 use firmware_core::{buttons::Detail, charging_log as format, screenshot::CapturePage};
 const START: usize = 0x62000;
 const END: usize = 0x6e000;
@@ -54,6 +56,8 @@ fn enqueue(event: Event) {
 static TOGGLE: AtomicBool = AtomicBool::new(false);
 
 pub struct Writer {
+    #[cfg(feature = "selective-logger")]
+    selection: selective_log::Selector,
     active: bool,
     stopping: bool,
     pd_base: usize,
@@ -72,6 +76,8 @@ pub struct Writer {
 impl Writer {
     pub fn new() -> Self {
         Self {
+            #[cfg(feature = "selective-logger")]
+            selection: selective_log::Selector::new(),
             active: false,
             stopping: false,
             pd_base: 0,
@@ -133,9 +139,15 @@ impl Writer {
         (self.base, self.index) = vi.unwrap_or((0, 0));
         self.vi_pending = vi.is_some();
         self.start = now;
+        #[cfg(feature = "selective-logger")]
+        {
+            self.selection = selective_log::Selector::new();
+        }
         self.next = now;
         self.active = true;
-        self.message = if cfg!(feature = "logger-observer") {
+        self.message = if cfg!(feature = "selective-logger") {
+            "SELECT REC 1s - L+R STOP"
+        } else if cfg!(feature = "logger-observer") {
             "OBS REC 1s - L+R STOP"
         } else {
             "LOGGER REC 1s - L+R STOP"
@@ -164,6 +176,13 @@ impl Writer {
                 return;
             }
             self.event_id += 1;
+            // Keep the same bounded queue/drain and IDs as the full logger.
+            // Only complete checked PD packets use kind 0; diagnostics never
+            // pass through suppression. Filter before any flash write.
+            #[cfg(feature = "selective-logger")]
+            if event.kind == 0 && selective_log::routine(&event.words[..event.count]) {
+                continue;
+            }
             let bus = I2C3.lock().await;
             // Reserve the whole packet before committing its first fragment.
             let remaining = if self.pd_base == 0 {
@@ -215,7 +234,14 @@ impl Writer {
         }
         self.next = format::next_deadline(self.next, now);
         if let Some((mv, ma)) = reading {
-            self.append(false, format::record(elapsed, mv, ma));
+            #[cfg(feature = "selective-logger")]
+            if !self.selection.keep(elapsed, mv, ma) {
+                return;
+            }
+            if self.append(false, format::record(elapsed, mv, ma)) {
+                #[cfg(feature = "selective-logger")]
+                self.selection.committed(elapsed, mv, ma);
+            }
         }
     }
     fn append(&mut self, event: bool, words: [u32; 4]) -> bool {
@@ -251,7 +277,11 @@ impl Writer {
                 return false;
             };
             base = free;
-            let h = format::journal_header(self.session, self.segment, event);
+            let h = if cfg!(feature = "selective-logger") {
+                format::selective_header(self.session, self.segment, event)
+            } else {
+                format::journal_header(self.session, self.segment, event)
+            };
             if !commit(base, base, h) {
                 self.fail("LOGGER WRITE FAILED");
                 return false;
@@ -292,7 +322,9 @@ fn tail(event: bool) -> Option<(usize, usize)> {
     let base = (START..END)
         .step_by(flash::SECTOR)
         .filter(|&b| {
-            format::valid_header(bytes(b)).is_some() && format::is_event(bytes(b)) == event
+            format::valid_header(bytes(b)).is_some()
+                && format::is_event(bytes(b)) == event
+                && format::is_selective(bytes(b)) == cfg!(feature = "selective-logger")
         })
         .max_by_key(|&b| {
             (

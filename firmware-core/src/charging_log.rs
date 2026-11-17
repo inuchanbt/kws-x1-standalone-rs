@@ -8,6 +8,10 @@ pub const MAGIC: u32 = 0x31474c58; // XLG1
 pub const EVENT_MAGIC: u32 = 0x31454c58; // XLE1: PD event fragments
 pub const JOURNAL_MAGIC: u32 = 0x32474c58; // XLG2: several sessions per sector
 pub const JOURNAL_EVENT_MAGIC: u32 = 0x32454c58; // XLE2
+// Fixed policy version 1: 100 mV / 100 mA, 60 s heartbeat, known SOP routine
+// suppression. Distinct ownership avoids mixing full/selective session tails.
+pub const SELECTIVE_MAGIC: u32 = 0x314c5358; // XSL1: VI
+pub const SELECTIVE_EVENT_MAGIC: u32 = 0x31505358; // XSP1: PD fragments
 pub const MAX_SESSIONS: u32 = 32;
 pub const INTERVAL_MS: u64 = 1000;
 /// Packet fragments may cross a sector, but never start a packet that cannot fit.
@@ -42,6 +46,26 @@ pub fn journal_header(session: u32, segment: u32, event: bool) -> [u32; 4] {
     w[3] = checksum(&w[..3]);
     w
 }
+pub fn selective_header(session: u32, segment: u32, event: bool) -> [u32; 4] {
+    let mut w = [
+        if event {
+            SELECTIVE_EVENT_MAGIC
+        } else {
+            SELECTIVE_MAGIC
+        },
+        session,
+        segment,
+        0,
+    ];
+    w[3] = checksum(&w[..3]);
+    w
+}
+pub fn is_selective(bytes: &[u8]) -> bool {
+    matches!(
+        words(bytes).map(|w| w[0]),
+        Some(SELECTIVE_MAGIC | SELECTIVE_EVENT_MAGIC)
+    )
+}
 /// Reserved elapsed value; normal data must stop before u32::MAX milliseconds.
 pub fn session_marker(session: u32) -> [u32; 4] {
     record(u32::MAX, session, 0)
@@ -49,13 +73,13 @@ pub fn session_marker(session: u32) -> [u32; 4] {
 pub fn is_event(bytes: &[u8]) -> bool {
     matches!(
         words(bytes).map(|w| w[0]),
-        Some(EVENT_MAGIC | JOURNAL_EVENT_MAGIC)
+        Some(EVENT_MAGIC | JOURNAL_EVENT_MAGIC | SELECTIVE_EVENT_MAGIC)
     )
 }
 pub fn is_journal(bytes: &[u8]) -> bool {
     matches!(
         words(bytes).map(|w| w[0]),
-        Some(JOURNAL_MAGIC | JOURNAL_EVENT_MAGIC)
+        Some(JOURNAL_MAGIC | JOURNAL_EVENT_MAGIC | SELECTIVE_MAGIC | SELECTIVE_EVENT_MAGIC)
     )
 }
 fn marker(bytes: &[u8], w: [u32; 3]) -> Option<u32> {
@@ -139,7 +163,12 @@ pub fn valid_header(bytes: &[u8]) -> Option<u32> {
     let w = words(bytes)?;
     (matches!(
         w[0],
-        MAGIC | EVENT_MAGIC | JOURNAL_MAGIC | JOURNAL_EVENT_MAGIC
+        MAGIC
+            | EVENT_MAGIC
+            | JOURNAL_MAGIC
+            | JOURNAL_EVENT_MAGIC
+            | SELECTIVE_MAGIC
+            | SELECTIVE_EVENT_MAGIC
     ) && w[3] == checksum(&w[..3]))
     .then_some(w[1])
 }
@@ -246,11 +275,17 @@ impl<'a> Disk<'a> {
             let kind: &[u8; 7] = if free[i] {
                 b"FREE   "
             } else if valid_header(self.sectors[i]).is_some() {
-                match (is_journal(self.sectors[i]), is_event(self.sectors[i])) {
-                    (true, false) => b"VI V2  ",
-                    (true, true) => b"PD V2  ",
-                    (false, false) => b"VI V1  ",
-                    (false, true) => b"PD V1  ",
+                match (
+                    is_selective(self.sectors[i]),
+                    is_journal(self.sectors[i]),
+                    is_event(self.sectors[i]),
+                ) {
+                    (true, _, false) => b"VI SEL1",
+                    (true, _, true) => b"PD SEL1",
+                    (false, true, false) => b"VI V2  ",
+                    (false, true, true) => b"PD V2  ",
+                    (false, false, false) => b"VI V1  ",
+                    (false, false, true) => b"PD V1  ",
                 }
             } else if owned[i] {
                 b"CAPTURE"
@@ -274,6 +309,9 @@ impl<'a> Disk<'a> {
         );
         let at = heading.len() + 6 * 32;
         out[at..at + summary.len()].copy_from_slice(&summary);
+        let policy = b"SEL1: 100mV/100mA; 60s heartbeat; known SOP routine omitted.\r\n1s input; passive PD RX only. No clean-stop marker.\r\n";
+        let at = at + summary.len();
+        out[at..at + policy.len()].copy_from_slice(policy);
         out[510..].copy_from_slice(b"\r\n");
         out
     }

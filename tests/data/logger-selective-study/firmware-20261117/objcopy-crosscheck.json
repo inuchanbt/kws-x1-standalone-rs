@@ -1,0 +1,32 @@
+{
+  "full-logger": {
+    "main": {
+      "bytes": 205408,
+      "sha256": "e3ab11cc17edc87c9748729ec3d39a1c3101acaca9e4d0396716a53f2a2da3cb"
+    },
+    "upper": {
+      "bytes": 122664,
+      "sha256": "4a0d485b82a959172237d77a3f27e53363908ce32a0bedb6aa6928285ae4ceea"
+    }
+  },
+  "selective-logger": {
+    "main": {
+      "bytes": 205544,
+      "sha256": "8272804e2f907b4559782427d0592ef2d12010d1a2caa69d483f99c74f1eabe4"
+    },
+    "upper": {
+      "bytes": 122664,
+      "sha256": "4722db3045c37fea4411b271509bdd93b76a9d5a988601a4540be2feb7aedfe0"
+    }
+  },
+  "default": {
+    "main": {
+      "bytes": 209888,
+      "sha256": "c2a71558b197dc4e3d438d38982bad94b792f09b0cc2dd41cefd6910ecbb142b"
+    },
+    "upper": {
+      "bytes": 122648,
+      "sha256": "d6166fb615498ce31baff1fdf19bd4b169142362dfc8de0cc7876196e3a635b4"
+    }
+  }
+}

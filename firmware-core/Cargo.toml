@@ -24,6 +24,7 @@ usbpd.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+serde_json.workspace = true
 embedded-graphics.workspace = true
 image-webp.workspace = true
 u8g2-fonts.workspace = true

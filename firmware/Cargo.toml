@@ -22,6 +22,9 @@ bench = false
 [features]
 # Exclusive charging logger variant; screenshot capture/export is replaced.
 charging-logger = []
+# Selective journal logging, with all normal charging controls retained.
+# This still uses the existing logger/screenshot compile-time alternative.
+selective-logger = ["charging-logger"]
 # Dedicated observation build: passive PD only; no trigger GPIO/task or PD sink.
 logger-observer = ["charging-logger"]
 i2c-rx-poll-diagnostic = ["embassy-hc32/i2c-rx-poll-diagnostic"]

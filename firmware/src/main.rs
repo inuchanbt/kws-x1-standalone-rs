@@ -41,6 +41,8 @@ mod screenshot;
 #[cfg(feature = "charging-logger")]
 #[path = "logger.rs"]
 mod screenshot;
+#[cfg(all(feature = "selective-logger", feature = "logger-observer"))]
+compile_error!("selective-logger retains charging controls; do not combine with logger-observer");
 #[cfg(all(
     feature = "charging-logger",
     any(

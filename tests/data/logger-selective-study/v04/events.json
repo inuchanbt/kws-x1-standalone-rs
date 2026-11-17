@@ -1,0 +1,278 @@
+[
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 32,
+    "voltage_mV": 19867,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 10243,
+    "event_id": 89,
+    "sop": "SOP",
+    "header_hex": "2889",
+    "data_hex": "B046E00A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 10247,
+    "event_id": 91,
+    "sop": "SOP",
+    "header_hex": "0DA3",
+    "data_hex": ""
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 10907,
+    "event_id": 93,
+    "sop": "SOP",
+    "header_hex": "0FA6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 11073,
+    "voltage_mV": 21830,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 16049,
+    "event_id": 139,
+    "sop": "SOP",
+    "header_hex": "2089",
+    "data_hex": "B047800A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 16053,
+    "event_id": 141,
+    "sop": "SOP",
+    "header_hex": "07A3",
+    "data_hex": ""
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 16713,
+    "event_id": 143,
+    "sop": "SOP",
+    "header_hex": "09A6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 17061,
+    "voltage_mV": 23817,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 21857,
+    "event_id": 189,
+    "sop": "SOP",
+    "header_hex": "2889",
+    "data_hex": "B048200A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 21861,
+    "event_id": 191,
+    "sop": "SOP",
+    "header_hex": "01A3",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 22042,
+    "voltage_mV": 24728,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 22522,
+    "event_id": 193,
+    "sop": "SOP",
+    "header_hex": "03A6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 23014,
+    "voltage_mV": 25816,
+    "current_mA": 503
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 27650,
+    "event_id": 239,
+    "sop": "SOP",
+    "header_hex": "2089",
+    "data_hex": "B048C00A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 27654,
+    "event_id": 241,
+    "sop": "SOP",
+    "header_hex": "0BA3",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 28060,
+    "voltage_mV": 27845,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 28315,
+    "event_id": 243,
+    "sop": "SOP",
+    "header_hex": "0DA6",
+    "data_hex": ""
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 33458,
+    "event_id": 289,
+    "sop": "SOP",
+    "header_hex": "2889",
+    "data_hex": "B048200A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 33462,
+    "event_id": 291,
+    "sop": "SOP",
+    "header_hex": "05A3",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 34084,
+    "voltage_mV": 25917,
+    "current_mA": 0
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 34123,
+    "event_id": 293,
+    "sop": "SOP",
+    "header_hex": "07A6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 35020,
+    "voltage_mV": 25825,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 39203,
+    "event_id": 339,
+    "sop": "SOP",
+    "header_hex": "2089",
+    "data_hex": "B047800A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 39207,
+    "event_id": 341,
+    "sop": "SOP",
+    "header_hex": "0FA3",
+    "data_hex": ""
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 39867,
+    "event_id": 343,
+    "sop": "SOP",
+    "header_hex": "01A6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 40011,
+    "voltage_mV": 23923,
+    "current_mA": 0
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 41096,
+    "voltage_mV": 23827,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 45616,
+    "event_id": 393,
+    "sop": "SOP",
+    "header_hex": "2A89",
+    "data_hex": "B046E00A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 45620,
+    "event_id": 395,
+    "sop": "SOP",
+    "header_hex": "0BA3",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 46096,
+    "voltage_mV": 21931,
+    "current_mA": 0
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 46280,
+    "event_id": 397,
+    "sop": "SOP",
+    "header_hex": "0DA6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 47014,
+    "voltage_mV": 21837,
+    "current_mA": 502
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 51358,
+    "event_id": 443,
+    "sop": "SOP",
+    "header_hex": "2289",
+    "data_hex": "B046400A D7C096F0"
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 51362,
+    "event_id": 445,
+    "sop": "SOP",
+    "header_hex": "05A3",
+    "data_hex": ""
+  },
+  {
+    "kind": "PD_RX",
+    "elapsed_ms": 52022,
+    "event_id": 447,
+    "sop": "SOP",
+    "header_hex": "07A6",
+    "data_hex": ""
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 52035,
+    "voltage_mV": 19972,
+    "current_mA": 0
+  },
+  {
+    "kind": "SAMPLE",
+    "elapsed_ms": 53100,
+    "voltage_mV": 19876,
+    "current_mA": 502
+  }
+]

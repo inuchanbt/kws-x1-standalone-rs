@@ -1,0 +1,51 @@
+{
+  "sha256": "006d4c724e744afa1e79e654eb641acbcfca92fcc7220b3006ec22c30c30e3bd",
+  "allocated_sections": {
+    ".vector_table": {
+      "address": 65536,
+      "bytes": 640,
+      "file_backed": true
+    },
+    ".upper": {
+      "address": 278528,
+      "bytes": 122648,
+      "file_backed": true
+    },
+    ".text": {
+      "address": 66176,
+      "bytes": 179436,
+      "file_backed": true
+    },
+    ".rodata": {
+      "address": 245616,
+      "bytes": 26052,
+      "file_backed": true
+    },
+    ".data": {
+      "address": 536842240,
+      "bytes": 3752,
+      "file_backed": true
+    },
+    ".gnu.sgstubs": {
+      "address": 275424,
+      "bytes": 0,
+      "file_backed": true
+    },
+    ".bss": {
+      "address": 536845992,
+      "bytes": 41616,
+      "file_backed": false
+    },
+    ".uninit": {
+      "address": 536887608,
+      "bytes": 0,
+      "file_backed": false
+    },
+    ".sram2": {
+      "address": 536936448,
+      "bytes": 64800,
+      "file_backed": false
+    }
+  },
+  "upper_remaining_bytes": 232
+}
