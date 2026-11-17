@@ -1,0 +1,18 @@
+{
+  "firmware_source": "dfbaf84d9aa9da69734fbfeab354c02899b04922",
+  "main_sha256": "3c8aeb66f03d1f5c0b1fac87625810a40ef06d1145db4464472e8f6ee51e7eca",
+  "original_private_storage_sha256": "2ab0ab304f12ec0fd7862597003de06619c60165a519db31d7d74a2ee5c96aa0",
+  "asd_cli_version": "v5.8.20",
+  "asd_cli_sha256": "860f4b18702376e9283cf60d74efbc69e516dbcbfd088480f5f4c9fab778eb99",
+  "original_source_sha256": {
+    "ASD.csv": "493ad9476c1e2d72dfd21dcc29294771dd00962fc2178d5b42c8dfe2bd8857d9",
+    "CY4500.csv": "37948443cbc2fe845e248db44619db17d0f4a15050cb0d3c2172e25ac43fbe42",
+    "CY4500.records.jsonl": "cf0aa7a3b08e0a7a7845ec8a651e910b69ac08e60881d8af4afd18020c252558",
+    "CY4500.diagnostics.json": "aeec4ae644c28b37bf44efc365133f6eb2aa77bc0eea3b845d91f13f357f5ce7"
+  },
+  "transformations": {
+    "ASD.csv": "Selected measurement columns; removed host command, paths, module identities and unrelated metadata. All original measurement rows retained.",
+    "CY4500.records.jsonl": "Removed host timestamps; raw_hex clipped after header/data-object region (20+4*NDO bytes), including non-packet records. No full raw USB transfer data is published.",
+    "storage-validation.json": "Removed uninterpreted words from protected/free sector metadata; private raw data excluded."
+  }
+}

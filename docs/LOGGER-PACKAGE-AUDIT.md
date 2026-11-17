@@ -1,5 +1,9 @@
 # Selective logger package and offline installer audit (2026-11-17)
 
+**Later hardware follow-up:** the matching package was subsequently installed
+on one device. [Installation and scoped runtime results](LOGGER-HARDWARE-VALIDATION-20261117.md).
+This document remains the earlier offline-only audit record.
+
 The selective logger at `dfbaf84d9aa9da69734fbfeab354c02899b04922` was rebuilt
 with its matching unpacker and packaged using the current branch's existing
 installer. No firmware features, flash boundaries or updater implementation
@@ -7,7 +11,7 @@ were changed. **No device was discovered, opened, queried, erased or written.**
 This report covers PC-side builds, package audits, dry runs and synthetic
 decoder/install replay. It does not establish hardware installation/recovery.
 The [proposed hardware trial](LOGGER-HARDWARE-TEST-PLAN.md) separately documents
-future backup, two-stage install and staged runtime checks; it has not been run.
+backup, two-stage install and staged runtime checks as proposed before that trial.
 
 ## Result
 

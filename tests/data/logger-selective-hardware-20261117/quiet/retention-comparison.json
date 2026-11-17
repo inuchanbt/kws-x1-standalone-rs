@@ -1,0 +1,29 @@
+{
+  "copied_at_jst": "2026-11-17T16:37:54.355341+09:00",
+  "user_confirmed_screen_fully_off_and_wait_at_least_5s": true,
+  "scope": "power removed only after stopped recording; not interruption during a write",
+  "all_files_byte_identical": true,
+  "files": [
+    {
+      "name": "STATUS.TXT",
+      "bytes": 512,
+      "sha256": "5520463f8e5dd830e2c05a3976823c39b2d8621aef519639aa1b624eda671d88",
+      "first_export_byte_equal": true,
+      "source_copy_reread_match": true
+    },
+    {
+      "name": "STORAGE.BIN",
+      "bytes": 49152,
+      "sha256": "a0c4d78d06b74a61af8bd457565160beaafb0253bf1680c338fdbcdef3993255",
+      "first_export_byte_equal": true,
+      "source_copy_reread_match": true
+    },
+    {
+      "name": "VI000101.CSV",
+      "bytes": 180,
+      "sha256": "e316b2c90add9a6fba14e12fa311c485bf22e56332aeb5aae74e844c01f08254",
+      "first_export_byte_equal": true,
+      "source_copy_reread_match": true
+    }
+  ]
+}

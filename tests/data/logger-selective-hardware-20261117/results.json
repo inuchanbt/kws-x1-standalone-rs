@@ -1,0 +1,21 @@
+{
+  "status": "PASS: scoped passive AVS selective capture and preservation",
+  "session": 3,
+  "retained_vi": 13,
+  "retained_pd": 24,
+  "pd_fragments": 40,
+  "storage_delta_bytes": 880,
+  "total_native_used_bytes": 976,
+  "new_sector_allocation_bytes": 8192,
+  "total_selective_sector_allocation_bytes": 16384,
+  "free_sectors": 2,
+  "storage_sha256": "2ab0ab304f12ec0fd7862597003de06619c60165a519db31d7d74a2ee5c96aa0",
+  "raw_crc_csv_equality": true,
+  "prior_data_preserved": true,
+  "pd_max_residual_ms": 3.7089061510632746,
+  "sweep_sequences": 8,
+  "active_kws_sink_tested": false,
+  "physical_power_cut_during_recording_tested": false,
+  "format": "native XSL1/XSP1; not PC XSC1",
+  "screenshot_coexistence": false
+}

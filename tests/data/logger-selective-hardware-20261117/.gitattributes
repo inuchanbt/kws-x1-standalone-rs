@@ -1,0 +1,7 @@
+*.CSV -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.csv -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# STATUS.TXT includes the device's original fixed-size trailing space padding.
+*.TXT -text -whitespace
+*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.jsonl -text
+SHA256SUMS -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

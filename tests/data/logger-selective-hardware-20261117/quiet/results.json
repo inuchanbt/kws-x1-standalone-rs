@@ -1,0 +1,50 @@
+{
+  "quiet_session": 1,
+  "retained_vi_count": 3,
+  "retained_vi": [
+    {
+      "session": 1,
+      "elapsed_ms": 39,
+      "voltage_mV": 5103,
+      "current_mA": 0
+    },
+    {
+      "session": 1,
+      "elapsed_ms": 61065,
+      "voltage_mV": 5105,
+      "current_mA": 0
+    },
+    {
+      "session": 1,
+      "elapsed_ms": 122081,
+      "voltage_mV": 5103,
+      "current_mA": 0
+    }
+  ],
+  "retained_intervals_ms": [
+    61026,
+    61016
+  ],
+  "heartbeat_observation": "retained later points satisfy heartbeat threshold while V/I changes remain below selection thresholds",
+  "native_bytes_first_session": 64,
+  "first_session_sector_allocation": 8192,
+  "crc_and_csv_validation_passed": true,
+  "stopped_log_power_off_retention_passed": true,
+  "second_session": {
+    "session": 2,
+    "vi_count": 1,
+    "first_elapsed_ms": 95,
+    "first_session_csv_byte_unchanged": true,
+    "same_sector_tail_reused": true,
+    "total_native_bytes_both_sessions": 96
+  },
+  "preexisting_capture_unknown_sectors_unchanged": true,
+  "free_sectors_after_two_sessions": 3,
+  "pd_capture_tested": false,
+  "active_charging_tested": false,
+  "limitations": [
+    "Selected output cannot reconstruct discarded internal samples.",
+    "No PD traffic was captured in this quiet PC USB test.",
+    "Power removal occurred after normal stop, not during writing."
+  ]
+}

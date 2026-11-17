@@ -1,5 +1,11 @@
 # Selective logger: proposed two-stage hardware trial
 
+**Later execution record:** preparation, installation, quiet recording and
+passive AVS were subsequently run on one device. [Observed results and procedure
+corrections](LOGGER-HARDWARE-VALIDATION-20261117.md). Active-mode trials remain
+pending. The text below preserves the original pre-trial plan and authorization
+scope; use the later report for actual outcomes and ASD session handling.
+
 Status: **plan only; no device access or writing performed**. Writing this
 plan and publishing its sources does not authorize running the device steps.
 Execute them only after a later explicit instruction to begin the hardware

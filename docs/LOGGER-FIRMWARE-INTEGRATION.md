@@ -1,11 +1,17 @@
 # Selective logger firmware integration and ARM footprint (2026-11-17)
 
+**Later hardware follow-up:** [one-device installation, quiet recording and
+passive AVS results](LOGGER-HARDWARE-VALIDATION-20261117.md). The report below
+describes the earlier integration/build stage; active-Sink operation while
+logging remains hardware-unverified.
+
 The later [offline package audit](LOGGER-PACKAGE-AUDIT.md) creates matching
 two-stage update files and checks dry runs/synthetic install replay. A complete
 single-file image exceeds the content budget by 15,773 B. Hardware remains
-untested; that follow-up does not change the firmware measured below.
+untested at the offline-audit stage; later hardware results are linked above.
+Neither follow-up changes the firmware measured below.
 
-This is an experimental, hardware-untested integration on top of
+At the integration stage this was an experimental, hardware-untested build on top of
 `abc4dba2bae404edfdae8d2aedc915eef71e3c7c`. The new `selective-logger` feature
 retains normal PD sink and QC/SCP/FCP/AFC charging controls. It implies
 `charging-logger`; combining it with the reduced `logger-observer` feature

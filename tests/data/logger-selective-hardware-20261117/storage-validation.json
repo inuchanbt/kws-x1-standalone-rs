@@ -1,0 +1,115 @@
+{
+  "raw_sha256": "2ab0ab304f12ec0fd7862597003de06619c60165a519db31d7d74a2ee5c96aa0",
+  "baseline_sha256": "a992a692df5baffe1798e091bf2ddbecfeb0e63b515045e413a4f50fd5376c41",
+  "all_native_header_and_record_crcs_pass": true,
+  "raw_csv_rows_equal": true,
+  "baseline_preservation_pass": true,
+  "preservation": [
+    {
+      "index": 1,
+      "rule": "unchanged sector"
+    },
+    {
+      "index": 2,
+      "rule": "unchanged sector"
+    },
+    {
+      "index": 3,
+      "rule": "append after unchanged committed prefix"
+    },
+    {
+      "index": 4,
+      "rule": "append into previously erased sector"
+    },
+    {
+      "index": 5,
+      "rule": "unchanged sector"
+    },
+    {
+      "index": 6,
+      "rule": "unchanged sector"
+    }
+  ],
+  "sectors": [
+    {
+      "index": 1,
+      "kind": "OTHER/PROTECTED",
+      "native": false,
+      "committed_slots": 0,
+      "tail_clean": false,
+      "prefix_end": 8192
+    },
+    {
+      "index": 2,
+      "kind": "OTHER/PROTECTED",
+      "native": false,
+      "committed_slots": 0,
+      "tail_clean": false,
+      "prefix_end": 8192
+    },
+    {
+      "index": 3,
+      "first_session": 1,
+      "segment": 0,
+      "committed_slots": 19,
+      "kind": "VI SEL1",
+      "native": true,
+      "event": false,
+      "journal": true,
+      "prefix_end": 320,
+      "tail_clean": true
+    },
+    {
+      "index": 4,
+      "first_session": 3,
+      "segment": 0,
+      "committed_slots": 40,
+      "kind": "PD SEL1",
+      "native": true,
+      "event": true,
+      "journal": true,
+      "prefix_end": 656,
+      "tail_clean": true
+    },
+    {
+      "index": 5,
+      "kind": "FREE",
+      "native": false,
+      "committed_slots": 0,
+      "tail_clean": true,
+      "prefix_end": 0
+    },
+    {
+      "index": 6,
+      "kind": "FREE",
+      "native": false,
+      "committed_slots": 0,
+      "tail_clean": true,
+      "prefix_end": 0
+    }
+  ],
+  "streams": [
+    {
+      "session": 1,
+      "event": false,
+      "rows": 3
+    },
+    {
+      "session": 2,
+      "event": false,
+      "rows": 1
+    },
+    {
+      "session": 3,
+      "event": false,
+      "rows": 13
+    },
+    {
+      "session": 3,
+      "event": true,
+      "rows": 40
+    }
+  ],
+  "native_used_bytes": 976,
+  "provenance": "Local private raw dumps; public fixtures cannot independently reproduce raw CRC/preservation checks without those originals."
+}

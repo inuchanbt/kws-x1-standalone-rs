@@ -1,0 +1,35 @@
+{
+  "checkout_head": "bf2653a2958b7a5e7efec66132fb6872443127ee",
+  "inputs_sha256": {
+    "firmware-upper.X1C": "d409ec43812022be07cdeae451207198c4bcdd6a9a17419d382c5d9d990cfbbe",
+    "firmware.X1C": "3c8aeb66f03d1f5c0b1fac87625810a40ef06d1145db4464472e8f6ee51e7eca",
+    "flasher.exe": "3a953717c0cd3cf1564827f4e1d7490db466053f70544c5289c095cab1c3ce97"
+  },
+  "hardware_install_result": "PASS: one unit, matching two-stage install, user-observed startup and post-install capture/log-byte preservation",
+  "stages": {
+    "upper": {
+      "user_bootloader_display": "Bootloader V1.1",
+      "exit_code": 0,
+      "accepted_batch_lines": 26,
+      "bootloader_accepted_and_reboot_sent": true,
+      "internal_final_verification_retry": false,
+      "user_observation": "2 short flashes followed by steady backlight"
+    },
+    "main": {
+      "user_bootloader_display": "Bootloader V1.1",
+      "exit_code": 0,
+      "accepted_batch_lines": 26,
+      "bootloader_accepted_and_reboot_sent": true,
+      "internal_final_verification_retry": false,
+      "user_observation": "Normal measurement screen reached without pressing buttons"
+    }
+  },
+  "post_install_storage_comparison": {
+    "bytes": 49152,
+    "before_sha256": "6268a773de0e4bfb5632907d9ead2adfd0d67f703b39152afe56d8c553076e7a",
+    "after_sha256": "6268a773de0e4bfb5632907d9ead2adfd0d67f703b39152afe56d8c553076e7a",
+    "byte_identical": true,
+    "different_bytes": 0,
+    "scope": "All six capture/log sectors [0x62000,0x6e000), before any new recording; not full MCU/settings verification"
+  }
+}
