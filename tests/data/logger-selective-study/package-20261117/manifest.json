@@ -1,0 +1,82 @@
+{
+  "firmware_source_head": "dfbaf84d9aa9da69734fbfeab354c02899b04922",
+  "helper_sources": "local follow-up additions; exact source bytes identified below",
+  "hardware_access": false,
+  "features": [
+    "selective-logger",
+    "charging-logger"
+  ],
+  "arm_build_arguments": [
+    "build",
+    "-p",
+    "firmware",
+    "--bin",
+    "firmware",
+    "--bin",
+    "unpacker",
+    "--release",
+    "--features",
+    "selective-logger",
+    "--target",
+    "thumbv7em-none-eabihf",
+    "--target-dir",
+    "target/logger-package-study-arm",
+    "--locked",
+    "--offline"
+  ],
+  "host_build_arguments": [
+    "build",
+    "-p",
+    "firmware-pack",
+    "-p",
+    "flasher",
+    "--release",
+    "--target-dir",
+    "target/logger-package-study-host",
+    "--locked",
+    "--offline"
+  ],
+  "rust_version": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "host_c_toolchain": "build/one-step-windows-20261116/toolchain/w64devkit/bin (read-only reuse)",
+  "host_linker_configuration": "w64devkit dlltool + bundled Rust self-contained x86_64-w64-mingw32-gcc linker; link-self-contained=yes",
+  "source_sha256": {
+    "Cargo.toml": "a5da7f238920810323717600d829e65da6843b43266c9ba351ff6df588957c13",
+    "Cargo.lock": "6eb7e0bb6b6acc776ae9b8554fd0dfbe88d790cce7a53e0b4195b9d8b3228bca",
+    "firmware-pack/Cargo.toml": "247b20ae64b61b4f70dd8c53662e85e1f831be33a3f160f34b78899e932a462a",
+    "firmware-pack/src/main.rs": "b6dcfa9ccea16284c6da66c209c77daeec167033dd31fb2b81e9ff6ca5748598",
+    "firmware-pack/examples/logger_install_replay.rs": "531ccaedbda6638eba8b948cdc35a5eb0f4f756672f5eba841d1da3f7293ffc8",
+    "firmware-image/Cargo.toml": "aa00cc5de474e6c9d949316e3aef9dadaf39def3186795305cba57d3e7f7b10d",
+    "firmware-image/src/lib.rs": "e04140f3c7780fda1d08620f0a5acf3291d5eedf32317e0620c00c18f3a5a43a",
+    "firmware-image/src/packed.rs": "73a6567fbf96948e1310666e13da9eb1d0b05fb853ff3b5fe76fafde89cb5848",
+    "firmware/src/bin/unpacker.rs": "cc743ebf455ecc1b03870e5a581330894215738e50221e8c12f4f89f7c8cbe81",
+    "firmware/unpacker.x": "50407e621deba50b9bfd39e670ffcb973ec3b507b941d4c175a26f138fdc8a4e",
+    "flasher/Cargo.toml": "1556fb1e7140ccbd4f4eeb6fe025b47732d6a6c14716e7acabd235a80dd3010f",
+    "flasher/src/main.rs": "64caa812b003e9417e25ec118cd582e38d8685e2ace086ecf280e1e35fbf3db5",
+    "flasher/src/image.rs": "bdbe16b811e86cd48fc30b1e5f131930e77ebb78585eb76d49a423fb824bd488",
+    "flasher/src/protocol.rs": "0747a30601889859b7ebfe5fb1643a95ae5e009b55b2e608e306c25c456f0a42",
+    "tools/logger_package_audit.py": "247ae87345aa7d8d70e54645e26fcb642615b0cd3d969f7fe79c6a9676e03d0f"
+  },
+  "inputs": {
+    "firmware": {
+      "source": "build/selective-logger-package-20261117/firmware.elf",
+      "sha256": "ce35bfca3f1d64780c208dc84ee5101c3861a34b46a4622d00b3694fc73b45f5"
+    },
+    "unpacker": {
+      "source": "build/selective-logger-package-20261117/unpacker.elf",
+      "sha256": "50467b4bb90aecc4493122b86cc33a2c193083a7d1f3006b881938e25ad40384"
+    },
+    "packer": {
+      "source": "target/logger-package-study-host/release/firmware-pack.exe",
+      "sha256": "074c6b0400947f164bb3a14eda070ae10e15af4c42ec9eb6e6b7af7687d71b06"
+    },
+    "flasher": {
+      "source": "target/logger-package-study-host/release/flasher.exe",
+      "sha256": "3a953717c0cd3cf1564827f4e1d7490db466053f70544c5289c095cab1c3ce97"
+    }
+  },
+  "expected_raw_regions": {
+    "upper": "4722db3045c37fea4411b271509bdd93b76a9d5a988601a4540be2feb7aedfe0",
+    "main": "8272804e2f907b4559782427d0592ef2d12010d1a2caa69d483f99c74f1eabe4"
+  },
+  "candidate_zip_sha256": "10be12e640f12e596a7766fb1e2f4f1cc8b9672bb711e495b95964ee5bb062ba"
+}

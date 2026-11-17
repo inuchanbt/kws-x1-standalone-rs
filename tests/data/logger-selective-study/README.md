@@ -1,5 +1,9 @@
 # Host selective-codec validation, 2026-11-16
 
+The later native package audit is in `package-20261117/`; see the
+[offline package report](../../../docs/LOGGER-PACKAGE-AUDIT.md). Its two-stage
+containers and synthetic install replay do not establish hardware operation.
+
 For the later native journal firmware implementation and same-source ARM
 comparison, see [the integration report](../../../docs/LOGGER-FIRMWARE-INTEGRATION.md)
 and `firmware-20261117/`. The native firmware format is distinct from the

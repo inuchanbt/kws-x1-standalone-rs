@@ -1,0 +1,195 @@
+{
+  "all_bytes_at_or_above_0x62000_preserved": true,
+  "bootloader_preserved": true,
+  "final_sector_tail_preserved": true,
+  "hardware_access": false,
+  "main_decoded_bytes": 205544,
+  "main_sector_trace": [
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 113697,
+      "sector_base": 65536,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 105505,
+      "sector_base": 73728,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 97313,
+      "sector_base": 81920,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 89121,
+      "sector_base": 90112,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 80929,
+      "sector_base": 98304,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 72737,
+      "sector_base": 106496,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 43401,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 64545,
+      "sector_base": 114688,
+      "unread_compressed_bytes": 88027
+    },
+    {
+      "consumed_compressed_bytes": 65517,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 78469,
+      "sector_base": 122880,
+      "unread_compressed_bytes": 65911
+    },
+    {
+      "consumed_compressed_bytes": 65517,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 70277,
+      "sector_base": 131072,
+      "unread_compressed_bytes": 65911
+    },
+    {
+      "consumed_compressed_bytes": 65517,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 62085,
+      "sector_base": 139264,
+      "unread_compressed_bytes": 65911
+    },
+    {
+      "consumed_compressed_bytes": 65517,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 53893,
+      "sector_base": 147456,
+      "unread_compressed_bytes": 65911
+    },
+    {
+      "consumed_compressed_bytes": 87431,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 67615,
+      "sector_base": 155648,
+      "unread_compressed_bytes": 43997
+    },
+    {
+      "consumed_compressed_bytes": 87431,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 59423,
+      "sector_base": 163840,
+      "unread_compressed_bytes": 43997
+    },
+    {
+      "consumed_compressed_bytes": 87431,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 51231,
+      "sector_base": 172032,
+      "unread_compressed_bytes": 43997
+    },
+    {
+      "consumed_compressed_bytes": 87431,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 43039,
+      "sector_base": 180224,
+      "unread_compressed_bytes": 43997
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 75648,
+      "sector_base": 188416,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 67456,
+      "sector_base": 196608,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 59264,
+      "sector_base": 204800,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 51072,
+      "sector_base": 212992,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 42880,
+      "sector_base": 221184,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 34688,
+      "sector_base": 229376,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 26496,
+      "sector_base": 237568,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 128232,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 18304,
+      "sector_base": 245760,
+      "unread_compressed_bytes": 3196
+    },
+    {
+      "consumed_compressed_bytes": 131033,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 12913,
+      "sector_base": 253952,
+      "unread_compressed_bytes": 395
+    },
+    {
+      "consumed_compressed_bytes": 131427,
+      "decoded_bytes": 8192,
+      "erase_margin_bytes": 5115,
+      "sector_base": 262144,
+      "unread_compressed_bytes": 1
+    },
+    {
+      "consumed_compressed_bytes": 131428,
+      "decoded_bytes": 744,
+      "erase_margin_bytes": 0,
+      "sector_base": 270336,
+      "unread_compressed_bytes": 0
+    }
+  ],
+  "matching_stage_identity": true,
+  "minimum_margin_while_compressed_bytes_remain": 5115,
+  "model": "patterned synthetic 512 KiB flash; decoder/fence replay, not MCU execution",
+  "upper_decoded_bytes": 122664
+}

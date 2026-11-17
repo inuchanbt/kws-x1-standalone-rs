@@ -1,5 +1,10 @@
 # Selective logger firmware integration and ARM footprint (2026-11-17)
 
+The later [offline package audit](LOGGER-PACKAGE-AUDIT.md) creates matching
+two-stage update files and checks dry runs/synthetic install replay. A complete
+single-file image exceeds the content budget by 15,773 B. Hardware remains
+untested; that follow-up does not change the firmware measured below.
+
 This is an experimental, hardware-untested integration on top of
 `abc4dba2bae404edfdae8d2aedc915eef71e3c7c`. The new `selective-logger` feature
 retains normal PD sink and QC/SCP/FCP/AFC charging controls. It implies
@@ -197,8 +202,9 @@ The screenshot/logger compile-time alternative predates this change and
 remains. Neither a successful build nor these host tests establish simultaneous
 screenshot logging, active-sink PD recording, runtime reception reliability,
 real charging capacity or physical recovery. Ripple and QR are not added.
-No firmware packaging, device write, clearing, install or new hardware test
-has been performed for this integration.
+At the footprint-study stage, no package audit was performed. The later
+offline packaging results are linked above. No device write, clearing,
+installation or new hardware test has been performed for this integration.
 
 ## 日本語要約
 

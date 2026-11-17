@@ -1,0 +1,41 @@
+{
+  "firmware_source_head": "dfbaf84d9aa9da69734fbfeab354c02899b04922",
+  "hardware_access": false,
+  "complete": {
+    "created": false,
+    "excess_bytes": 15773,
+    "content_budget_bytes": 209916,
+    "reason": "ERROR The release exceeds the application space by 15773 bytes"
+  },
+  "images": {
+    "upper": {
+      "filename": "firmware-upper.X1C",
+      "file_bytes": 210498,
+      "sha256": "d409ec43812022be07cdeae451207198c4bcdd6a9a17419d382c5d9d990cfbbe",
+      "dry_run_passed": true
+    },
+    "main": {
+      "filename": "firmware.X1C",
+      "file_bytes": 210498,
+      "sha256": "3c8aeb66f03d1f5c0b1fac87625810a40ef06d1145db4464472e8f6ee51e7eca",
+      "dry_run_passed": true
+    }
+  },
+  "negative_checks": {
+    "wrong_confirmed_hash_rejected": true,
+    "corrupt_image_with_matching_hash_rejected": true,
+    "different_firmware_elf_rejected": true
+  },
+  "packaging_cli_tests_passed": 10,
+  "synthetic_install_replay": {
+    "all_bytes_at_or_above_0x62000_preserved": true,
+    "bootloader_preserved": true,
+    "final_sector_tail_preserved": true,
+    "hardware_access": false,
+    "main_decoded_bytes": 205544,
+    "matching_stage_identity": true,
+    "minimum_margin_while_compressed_bytes_remain": 5115,
+    "model": "patterned synthetic 512 KiB flash; decoder/fence replay, not MCU execution",
+    "upper_decoded_bytes": 122664
+  }
+}

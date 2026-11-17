@@ -1,0 +1,44 @@
+{
+  "sha256": "d409ec43812022be07cdeae451207198c4bcdd6a9a17419d382c5d9d990cfbbe",
+  "payload_bytes": 210496,
+  "erase_sectors": 26,
+  "erase_envelope": [
+    65536,
+    278528
+  ],
+  "initial_sp": 536932096,
+  "reset_vector": 66177,
+  "systick_vector": 67725,
+  "custom_irq_lines": [
+    1,
+    4,
+    13,
+    31,
+    38,
+    39,
+    40,
+    41,
+    86,
+    87,
+    88,
+    110,
+    111,
+    112,
+    113,
+    116
+  ],
+  "application_bytes": 94261,
+  "application_sha256": "866ab48a41c20863ce64b6a65422b28845a4edf0eda9d086d7c4adc2a0a5a048",
+  "unused_content_bytes": 115655,
+  "descriptor_bytes": 16,
+  "release": {
+    "unpacker_bytes": 15340,
+    "main_bytes": 205544,
+    "main_packed_bytes": 0,
+    "upper_bytes": 122664,
+    "upper_packed_bytes": 78921,
+    "upper_unused_bytes": 216,
+    "erase_margin_bytes": 0
+  },
+  "status": "structural audit passed; hardware not validated"
+}
