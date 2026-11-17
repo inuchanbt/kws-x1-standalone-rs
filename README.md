@@ -239,7 +239,7 @@ bootloader instead (see [Flashing](#flashing)).
    connecting the meter's USB-C receptacle to a PC with a data cable.
 3. Open the read-only **KWS X1** drive and copy the numbered BMP files.
    New screenshots include a boot number and menu name, such as
-   `00000001_OVERVIEW01.BMP`. Captures saved before this feature keep their
+   `0001_OVERVIEW01.BMP`. Captures saved before this feature keep their
    original names, such as `OVERVIEW01.BMP`.
    Older screenshots without menu data keep the `SCREEN` prefix.
    The numbers follow capture order across all menus. Unplug and reconnect

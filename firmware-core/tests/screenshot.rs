@@ -600,17 +600,18 @@ fn boot_prefixed_names_keep_flat_fat_and_identical_bitmap_bytes() {
         bytes.truncate(size);
         expected.push(bytes);
     }
-    for mode in 0..3 {
+    for mode in 0..4 {
         let groups = core::array::from_fn(|i| match mode {
             0 => 1,
             1 => i as u32 + 1,
-            _ => {
+            2 => {
                 if i < 17 {
                     0
                 } else {
                     99_999_999
                 }
             }
+            _ => if i % 2 == 0 { 9_999 } else { 10_000 },
         });
         let mut scratch = [0; PIXELS];
         let mut disk = Disk::new(&records, &mut scratch, test_cable_band).with_boot_groups(&groups);
@@ -623,7 +624,7 @@ fn boot_prefixed_names_keep_flat_fat_and_identical_bitmap_bytes() {
             let wanted = if groups[i] == 0 {
                 flat_entries[i].0.clone()
             } else {
-                format!("{:08}_{}", groups[i], flat_entries[i].0)
+                format!("{:04}_{}", groups[i], flat_entries[i].0)
             };
             assert_eq!(name, wanted);
             assert!(aliases.insert(entry[..11].to_vec()));

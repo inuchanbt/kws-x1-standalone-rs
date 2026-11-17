@@ -337,15 +337,22 @@ impl FileName {
         };
         name.short[digit_start..digit_start + digits].copy_from_slice(suffix);
         if group != 0 {
-            name.len = 9 + base_len + 4;
-            for digit in name.long[..8].iter_mut().rev() {
+            let mut group_digits = 4;
+            let mut remaining = group / 10_000;
+            while remaining != 0 {
+                group_digits += 1;
+                remaining /= 10;
+            }
+            let start = group_digits + 1;
+            name.len = start + base_len + 4;
+            for digit in name.long[..group_digits].iter_mut().rev() {
                 *digit = b'0' + (group % 10) as u8;
                 group /= 10;
             }
-            name.long[8] = b'_';
-            name.long[9..9 + prefix.len()].copy_from_slice(prefix);
-            name.long[9 + prefix.len()..9 + base_len].copy_from_slice(suffix);
-            name.long[9 + base_len..name.len].copy_from_slice(b".BMP");
+            name.long[group_digits] = b'_';
+            name.long[start..start + prefix.len()].copy_from_slice(prefix);
+            name.long[start + prefix.len()..start + base_len].copy_from_slice(suffix);
+            name.long[start + base_len..name.len].copy_from_slice(b".BMP");
         }
         name
     }

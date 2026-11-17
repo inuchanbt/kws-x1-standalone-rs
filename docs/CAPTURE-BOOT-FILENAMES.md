@@ -13,13 +13,14 @@ were saved, keeping a flat read-only USB volume:
 
 ```text
 PD01.BMP                       existing untagged capture, unchanged
-00000001_OVERVIEW09.BMP         first boot with new captures
-00000001_CHARGER10.BMP          another image in that same boot
-00000002_PD11.BMP               a later boot with a saved capture
+0001_OVERVIEW09.BMP             first boot with new captures
+0001_CHARGER10.BMP              another image in that same boot
+0002_PD11.BMP                   a later boot with a saved capture
 ```
 
 The trailing image number still follows capture order across all menus; it does
-not restart per boot. The prefix is eight decimal digits. Only the first
+not restart per boot. The prefix is at least four decimal digits: after 9999,
+10000 and larger IDs use their full length without wrapping or collision. Only the first
 successful save in a boot allocates the next ID; later images reuse it.
 Export-only boots and boots without saved images make no flash writes and use
 no ID. A boot ID therefore counts boots **with saved captures**, not all power
@@ -75,6 +76,9 @@ shared implementations, the actual default ARM release build passes the
 **original** linker boundaries and stack assertion. No temporary region
 extension, special linker optimization flags or feature removal is used.
 
+The following table records the earlier eight-digit implementation at commit
+`667d3c4`. The later minimum-four-digit display change is measured separately
+in the local update-package audit; the table is retained as historical evidence.
 Same base/source path/toolchain/profile, Rust/Cargo 1.99.1,
 `thumbv7em-none-eabihf`, `--release --locked --offline`, normal
 `opt-level=z`, LTO and one codegen unit:
@@ -141,7 +145,8 @@ names before another build overwrites Cargo's firmware artifact.
 
 ## 日本語要約
 
-新しい画像に `00000001_`のような起動番号を付け、同一起動の画像を区別する。
+新しい画像に `0001_`のような起動番号を付け、同一起動の画像を区別する。9999の次は10000。
+以下のサイズ値は変更前の8桁版の測定で、4桁表示版は別途監査する。
 旧画像の名前・内容は保持。USB出力だけの起動や撮影なしの起動ではflashを書かない。
 番号は撮影成功した起動ごとで、画像全消去後は1に戻る。機器名の自動判別ではない。
 

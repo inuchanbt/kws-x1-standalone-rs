@@ -2,6 +2,8 @@
 
 [Implementation and limits](../../../docs/CAPTURE-BOOT-FILENAMES.md).
 Base: `e9fab2e50ebf11649e7b0b7c12c48928dfc29d74`.
+This is the historical eight-digit build at `667d3c4`; the later minimum-four-
+digit change has its own build and package audit and does not change these files.
 
 - `footprint.json`: original/default, final boot-filename screenshot and
   selective-logger ELF hashes, flash load/region margins and static RAM. All
