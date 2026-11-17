@@ -1,0 +1,79 @@
+{
+  "builds": {
+    "baseline": {
+      "sha256": "006d4c724e744afa1e79e654eb641acbcfca92fcc7220b3006ec22c30c30e3bd",
+      "main_flash_load_bytes": 209880,
+      "upper_flash_load_bytes": 122648,
+      "total_flash_load_bytes": 332528,
+      "main_flash_span_bytes": 209888,
+      "main_flash_remaining_bytes": 28,
+      "upper_remaining_bytes": 232,
+      "main_static_ram_bytes": 45368,
+      "sram2_static_bytes": 64800,
+      "total_static_ram_bytes": 110168,
+      "linker_stack_reserved_bytes": 44488,
+      "sections": {
+        ".vector_table": 640,
+        ".upper": 122648,
+        ".text": 179436,
+        ".rodata": 26052,
+        ".data": 3752,
+        ".gnu.sgstubs": 0,
+        ".bss": 41616,
+        ".uninit": 0,
+        ".sram2": 64800
+      }
+    },
+    "capture": {
+      "sha256": "a1ce0ed54c9da400696f0317df43ca822c33900caf19f30f84f04de9765603bc",
+      "main_flash_load_bytes": 208424,
+      "upper_flash_load_bytes": 122656,
+      "total_flash_load_bytes": 331080,
+      "main_flash_span_bytes": 208432,
+      "main_flash_remaining_bytes": 1484,
+      "upper_remaining_bytes": 224,
+      "main_static_ram_bytes": 45408,
+      "sram2_static_bytes": 64800,
+      "total_static_ram_bytes": 110208,
+      "linker_stack_reserved_bytes": 44448,
+      "sections": {
+        ".vector_table": 640,
+        ".upper": 122656,
+        ".text": 177964,
+        ".rodata": 26068,
+        ".data": 3752,
+        ".gnu.sgstubs": 0,
+        ".bss": 41656,
+        ".uninit": 0,
+        ".sram2": 64800
+      }
+    },
+    "selective-logger": {
+      "sha256": "30a9bb81ef864edb34f2b8e8731f2fc11456b7dc57c279bb77fd3deddd6a1457",
+      "main_flash_load_bytes": 205536,
+      "upper_flash_load_bytes": 122664,
+      "total_flash_load_bytes": 328200,
+      "main_flash_span_bytes": 205544,
+      "main_flash_remaining_bytes": 4372,
+      "upper_remaining_bytes": 216,
+      "main_static_ram_bytes": 46020,
+      "sram2_static_bytes": 64800,
+      "total_static_ram_bytes": 110820,
+      "linker_stack_reserved_bytes": 43836,
+      "sections": {
+        ".vector_table": 640,
+        ".upper": 122664,
+        ".text": 174644,
+        ".rodata": 26500,
+        ".data": 3752,
+        ".gnu.sgstubs": 0,
+        ".bss": 42268,
+        ".uninit": 0,
+        ".sram2": 64800
+      }
+    }
+  },
+  "hardware_tested": false,
+  "normal_linker_layout": true,
+  "note": "ELF static allocation/load bytes, not package size or runtime stack maximum"
+}

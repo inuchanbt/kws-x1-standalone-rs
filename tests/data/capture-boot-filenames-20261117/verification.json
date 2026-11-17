@@ -1,0 +1,38 @@
+{
+  "base_head": "e9fab2e50ebf11649e7b0b7c12c48928dfc29d74",
+  "branch": "codex/capture-boot-filenames",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "arm_target": "thumbv7em-none-eabihf",
+  "profile": "release opt-level=z lto=true codegen-units=1; locked/offline; no extra ARM RUSTFLAGS",
+  "default_arm_build": "PASS with original memory.x",
+  "selective_logger_arm_build": "PASS; zero flash/static RAM size delta versus prior published selective build",
+  "core_integration_tests": 67,
+  "backup_screenshot_tests": 16,
+  "writer_model_tests": 5,
+  "modeled_word_partial_word_cases": 1356,
+  "private_backup_old_captures_checked": 8,
+  "private_backup_sha256": "6268a773de0e4bfb5632907d9ead2adfd0d67f703b39152afe56d8c553076e7a",
+  "source_text_sha256_lf_normalized": {
+    "firmware/src/screenshot.rs": "d3113450809634d7500f6cab7242106b08d1b47e99b381b4d2d4ae17b712d886",
+    "firmware/src/main.rs": "3653321df540c7cf42cbcaeac486d7da2dd773b8c6cb5eb92c2dfc71f5af8638",
+    "firmware-core/src/capture_boot.rs": "3bf77758e0230df82960b9827a251fc95c6ffd8ae5d2584404946c1d8695c277",
+    "firmware-core/src/screenshot_disk.rs": "35e1da6e25e7f541af3f04e8d32c9193398c4d6c99b62ee3e04db8f1d96cb5f2",
+    "firmware-core/src/lib.rs": "242f52610105681f50b5a20f8af45ac7da540d498e5e8828af09cbf8a574b225",
+    "firmware-core/tests/screenshot.rs": "f13878f869143d189a76531637e300d288a07817cc238aae38e0c95b82df46c4",
+    "firmware/memory.x": "d34e0d5af4edd29408751e0097012cdd5a2fdc21a34aaa2dc44b7fcd22a2fe31",
+    "Cargo.toml": "c330197cc5ba27088b50724b2604217b7044a48970c3717c4c01dad82f307d5d",
+    "Cargo.lock": "6eb7e0bb6b6acc776ae9b8554fd0dfbe88d790cce7a53e0b4195b9d8b3228bca",
+    ".cargo/config.toml": "71c439eb9c9d6cd6f41577922878b010a761f33fdff48ece255aaa00d50677ce",
+    "firmware/Cargo.toml": "f068724676b70daa03a3f888504f67f0db7750b96f58bf3f88170df94594b82b",
+    "firmware-core/Cargo.toml": "3d2b4e9779b0a7166023e0087f939a3d2b00103e72fd97370f5352fe28bd43ac"
+  },
+  "unrelated_protected_files_unchanged": 38,
+  "hardware_access": false,
+  "update_package_created": false,
+  "limits": [
+    "PC RAM flash model, not physical power-cut/flash/USB qualification",
+    "Static RAM and linker stack reservation do not measure runtime stack high-water",
+    "New records cost12 B; old records stay in original encoding",
+    "X1B1 downgrade not tested; eight-digit IDs restart after complete capture clear"
+  ]
+}

@@ -18,6 +18,7 @@ pub mod power_history;
 pub mod ripple;
 pub mod scp;
 pub mod screenshot;
+pub mod capture_boot;
 pub mod screenshot_disk;
 pub mod screenshot_report;
 pub mod settings;

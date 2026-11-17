@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | `main` | 画面キャプチャ版の基準と既存Release | 通常ビルド |
 | `charging-logger` | 電圧・電流、パッシブPD記録、CSV出力とAVS検証 | `--features charging-logger` |
+| `codex/capture-boot-filenames` | 未リリースの起動番号付き画像。旧データ・名前は保持 | 通常ビルド。[仕様とPC／ARM検証](CAPTURE-BOOT-FILENAMES.md)。この機能の実機確認はまだ |
 
 今後の独立した派生版も、用途の分かるブランチへ分けます。新しい派生版を作った際に、
 ビルド方法・保存領域・検証結果・Release状況を追記します。共通修正をmainへ戻す場合も、

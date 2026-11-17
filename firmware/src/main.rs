@@ -2419,13 +2419,14 @@ async fn main(spawner: Spawner) {
                     // to expand one picture at a time for USB block reads.
                     // Build the record table after the await so it stays off the main task's static storage.
                     #[cfg(not(feature = "charging-logger"))]
-                    let records = screenshot::export_records();
+                    let (records, groups) = screenshot::export_records();
                     #[cfg(not(feature = "charging-logger"))]
                     let disk = Disk::new(
                         &records,
                         &mut *framebuffer().cast(),
                         ui::draw_report_capture_row,
-                    );
+                    )
+                    .with_boot_groups(&groups);
                     #[cfg(feature = "capture-backup")]
                     let disk = disk.with_flash_snapshot(screenshot::export_flash_snapshot());
                     #[cfg(feature = "charging-logger")]

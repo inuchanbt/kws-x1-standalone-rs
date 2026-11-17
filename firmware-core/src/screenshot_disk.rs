@@ -26,7 +26,7 @@ const FAT_BLOCKS: usize = ((2 + CLUSTERS) * 3).div_ceil(2 * BLOCK_BYTES);
 // Leave room for the volume label and the end-of-directory marker.
 const ROOT_BLOCKS: usize = (3 * FILE_SLOTS + 2).div_ceil(ENTRIES_PER_BLOCK);
 const LONG_NAME_CHARS: usize = 13;
-const MAX_BMP_NAME: usize = b"PDPROFILES999.BMP".len();
+const MAX_BMP_NAME: usize = b"00000001_PDPROFILES999.BMP".len();
 const _: () = assert!(MAX_BMP_NAME <= 2 * LONG_NAME_CHARS);
 const FIRST_ROOT: u32 = 1 + FAT_BLOCKS as u32;
 const FIRST_DATA: u32 = FIRST_ROOT + ROOT_BLOCKS as u32;
@@ -47,6 +47,7 @@ enum File<'a> {
 }
 
 pub struct Disk<'a> {
+    groups: Option<&'a [u32; CAPTURE_TABLE_LEN]>,
     records: &'a [Option<Capture<'a>>; CAPTURE_TABLE_LEN],
     #[cfg(feature = "capture-backup")]
     flash: Option<&'a [u8; FLASH_SNAPSHOT_BYTES]>,
@@ -62,6 +63,7 @@ impl<'a> Disk<'a> {
         draw_report_row: DrawReportRow,
     ) -> Self {
         Self {
+            groups: None,
             records,
             #[cfg(feature = "capture-backup")]
             flash: None,
@@ -71,6 +73,12 @@ impl<'a> Disk<'a> {
         }
     }
 
+    /// IDs align with the packed capture table; zero preserves the old name.
+    /// The optional raw-flash diagnostic file always keeps its original name.
+    pub fn with_boot_groups(mut self, groups: &'a [u32; CAPTURE_TABLE_LEN]) -> Self {
+        self.groups = Some(groups);
+        self
+    }
     #[cfg(feature = "capture-backup")]
     pub fn with_flash_snapshot(mut self, snapshot: &'a [u8; FLASH_SNAPSHOT_BYTES]) -> Self {
         self.flash = Some(snapshot);
@@ -180,7 +188,12 @@ impl<'a> Disk<'a> {
             if position >= first + ENTRIES_PER_BLOCK {
                 break;
             }
-            let name = record.name(index + 1);
+            let group = self
+                .groups
+                .and_then(|groups| groups.get(index))
+                .copied()
+                .unwrap_or(0);
+            let name = record.name(index + 1, group);
             let long_entries = name.long_entries();
             let short_entry = position + long_entries;
             if short_entry >= first {
@@ -266,7 +279,7 @@ impl File<'_> {
         }
     }
 
-    fn name(&self, number: usize) -> FileName {
+    fn name(&self, number: usize, group: u32) -> FileName {
         let prefix = match *self {
             File::Capture(Capture::Screen(screen)) => screen.page_name(),
             File::Capture(Capture::Report(report)) => {
@@ -281,7 +294,7 @@ impl File<'_> {
                 };
             }
         };
-        FileName::bmp(prefix.as_bytes(), number)
+        FileName::bmp(prefix.as_bytes(), number, group)
     }
 }
 
@@ -292,7 +305,7 @@ struct FileName {
 }
 
 impl FileName {
-    fn bmp(prefix: &[u8], mut number: usize) -> Self {
+    fn bmp(prefix: &[u8], mut number: usize, mut group: u32) -> Self {
         let digits = if number < 100 { 2 } else { 3 };
         let mut suffix = [0; 3];
         let suffix = &mut suffix[..digits];
@@ -323,6 +336,17 @@ impl FileName {
             8 - digits
         };
         name.short[digit_start..digit_start + digits].copy_from_slice(suffix);
+        if group != 0 {
+            name.len = 9 + base_len + 4;
+            for digit in name.long[..8].iter_mut().rev() {
+                *digit = b'0' + (group % 10) as u8;
+                group /= 10;
+            }
+            name.long[8] = b'_';
+            name.long[9..9 + prefix.len()].copy_from_slice(prefix);
+            name.long[9 + prefix.len()..9 + base_len].copy_from_slice(suffix);
+            name.long[9 + base_len..name.len].copy_from_slice(b".BMP");
+        }
         name
     }
 

@@ -547,3 +547,96 @@ fn detail_reports_export_all_rows_under_page_names_alongside_a_bmp() {
     disk.read(first_data, &mut block);
     assert_eq!(&block[..2], b"BM");
 }
+
+#[test]
+fn boot_envelope_preserves_images_and_rejects_header_damage() {
+    use firmware_core::capture_boot as group;
+    let encoded = encode(&[0; FRAME_BYTES]);
+    let mut wrapped = group::header(12).unwrap().to_vec();
+    wrapped.extend_from_slice(&encoded);
+    assert_eq!(group::record_len(&wrapped), Some(wrapped.len()));
+    assert_eq!(group::open(&wrapped).unwrap().0, 12);
+    assert_eq!(group::open(&encoded).unwrap().0, 0);
+    for i in 0..group::HEADER_BYTES {
+        for bit in 0..8 {
+            wrapped[i] ^= 1 << bit;
+            assert!(group::open(&wrapped).is_none());
+            wrapped[i] ^= 1 << bit;
+        }
+    }
+    assert!(group::header(0).is_none());
+    assert!(group::header(group::MAX_GROUP + 1).is_none());
+    // The wrapper overhead must be included in the physical sector bound.
+    wrapped[20..22].copy_from_slice(&(MAX_RECORD_BYTES as u16).to_le_bytes());
+    assert!(group::record_len(&wrapped).is_none());
+}
+
+#[test]
+fn boot_prefixed_names_keep_flat_fat_and_identical_bitmap_bytes() {
+    let frames: Vec<Vec<u8>> = (0..3)
+        .map(|color| {
+            let mut frame = [0; FRAME_BYTES];
+            for pixel in frame.as_chunks_mut::<2>().0 {
+                *pixel = [0x12, color];
+            }
+            encode_for(&frame, CapturePage::PdProfiles)
+        })
+        .collect();
+    let records = core::array::from_fn(|i| Capture::open(&frames[i % 3]));
+    let mut scratch = [0; PIXELS];
+    let mut flat = Disk::new(&records, &mut scratch, test_cable_band);
+    let mut boot = [0; BLOCK_BYTES];
+    flat.read(0, &mut boot);
+    let (first_root, first_data) = volume_layout(&boot);
+    let clusters = u32::from(boot[13]);
+    let root = read_blocks(&mut flat, first_root..first_data);
+    let flat_entries = directory_files(&root);
+    let mut expected = Vec::new();
+    for (_, entry) in &flat_entries {
+        let c = u16::from_le_bytes(entry[26..28].try_into().unwrap());
+        let size = u32::from_le_bytes(entry[28..32].try_into().unwrap()) as usize;
+        let start = first_data + (u32::from(c) - 2) * clusters;
+        let mut bytes = read_blocks(&mut flat, start..start + size.div_ceil(BLOCK_BYTES) as u32);
+        bytes.truncate(size);
+        expected.push(bytes);
+    }
+    for mode in 0..3 {
+        let groups = core::array::from_fn(|i| match mode {
+            0 => 1,
+            1 => i as u32 + 1,
+            _ => {
+                if i < 17 {
+                    0
+                } else {
+                    99_999_999
+                }
+            }
+        });
+        let mut scratch = [0; PIXELS];
+        let mut disk = Disk::new(&records, &mut scratch, test_cable_band).with_boot_groups(&groups);
+        let fat = read_blocks(&mut disk, 1..first_root);
+        let root = read_blocks(&mut disk, first_root..first_data);
+        let entries = directory_files(&root);
+        assert_eq!(entries.len(), CAPTURE_TABLE_LEN);
+        let mut aliases = std::collections::BTreeSet::new();
+        for (i, (name, entry)) in entries.into_iter().enumerate() {
+            let wanted = if groups[i] == 0 {
+                flat_entries[i].0.clone()
+            } else {
+                format!("{:08}_{}", groups[i], flat_entries[i].0)
+            };
+            assert_eq!(name, wanted);
+            assert!(aliases.insert(entry[..11].to_vec()));
+            assert_eq!(entry[11] & 0x10, 0);
+            let mut c = u16::from_le_bytes(entry[26..28].try_into().unwrap());
+            let mut bmp = Vec::new();
+            while c != 0xfff {
+                let start = first_data + (u32::from(c) - 2) * clusters;
+                bmp.extend(read_blocks(&mut disk, start..start + clusters));
+                c = fat_next(&fat, c);
+            }
+            bmp.truncate(u32::from_le_bytes(entry[28..32].try_into().unwrap()) as usize);
+            assert_eq!(bmp, expected[i]);
+        }
+    }
+}

@@ -2,7 +2,7 @@
 
 > **Single-file observer v0.7 candidate:** `--features logger-observer` builds a passive logger with active protocol controls disabled. One device has verified single-file installation, ten short recordings with CSV/raw-store integrity, and a 55-second AVS sweep with physical PD-sector continuation. All 476 sweep packets match CY4500, and all nine steps were compared with ASD-PD31. See [Observer guide](docs/LOGGER-OBSERVER.md).
 
-> **Branch: `charging-logger` — experimental logger development.** The screenshot baseline and established releases stay on `main`. See [branch policy](docs/BRANCHES.md). Logger builds require `--features charging-logger`.
+> **Branch: `codex/capture-boot-filenames` — unreleased capture boot identifiers.** The default build prefixes newly saved screenshots with a boot number. Existing captures keep their names. PC checks and a normal-layout ARM build pass; this feature has not been installed or tested on hardware. The branch starts from `charging-logger`; logger builds still require an explicit feature. See [implementation and limits](docs/CAPTURE-BOOT-FILENAMES.md) and [branch policy](docs/BRANCHES.md).
 
 > **Experimental charging logger v0.4:** build with `--features charging-logger` to replace screenshot capture/BMP export with 1-second voltage/current recording, passive PD RX logging and USB CSV export. A 64-second AVS sweep on one KWS-X1 verified event-sector rollover and 516 matching packets in the CY4500 overlap; see the [English guide](docs/CHARGING-LOGGER.md), [Japanese guide](docs/CHARGING-LOGGER.ja.md), and [validation record](docs/LOGGER-VALIDATION.md). The default build remains the screenshot variant. No logger release assets have been published.
 
@@ -238,10 +238,17 @@ bootloader instead (see [Flashing](#flashing)).
 2. Leave the other USB-C connector empty. Hold **Left** and **Right** while
    connecting the meter's USB-C receptacle to a PC with a data cable.
 3. Open the read-only **KWS X1** drive and copy the numbered BMP files.
-   New screenshots include their menu name, such as `OVERVIEW01.BMP`.
+   New screenshots include a boot number and menu name, such as
+   `00000001_OVERVIEW01.BMP`. Captures saved before this feature keep their
+   original names, such as `OVERVIEW01.BMP`.
    Older screenshots without menu data keep the `SCREEN` prefix.
    The numbers follow capture order across all menus. Unplug and reconnect
    without holding buttons to return to measurement.
+
+The same leading number identifies images from the same boot with successful
+captures. It advances on a later boot's first successful capture, not on an
+export-only boot. It is not a charger identifier and resets after all captures
+are cleared. Published capture releases do not yet include this filename feature.
 
 The meter packs lossless 240×135 screenshots into available flash. The number
 it can keep depends on compressed sizes and space available within sectors.

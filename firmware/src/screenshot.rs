@@ -1,18 +1,19 @@
 //! Save complete captures in erased sectors. Export reads them as a batch.
 //! Only a separately confirmed clear can erase capture-owned sectors.
 
-use core::sync::atomic::{AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 use embassy_time::Timer;
 use firmware_core::buttons::Detail;
 use firmware_core::screenshot::{
     CAPTURE_SECTORS, CAPTURE_SPARE_SECTORS, CAPTURE_TABLE_LEN, COMPACT_HEADER_BYTES, Capture,
-    CapturePage, Encoder, FRAME_BYTES, LEGACY_RECORD_BYTES, MAX_RECORD_BYTES, compact_record_len,
+    CapturePage, Encoder, FRAME_BYTES, LEGACY_RECORD_BYTES, MAX_RECORD_BYTES,
 };
 use firmware_core::screenshot_report::{HEADER_RGB_BYTES, encode_report};
 
 use crate::{I2C3, flash, render::Frame, ui};
+use firmware_core::capture_boot;
 
 const START: usize = firmware_image::UPPER_END as usize;
 const END: usize = 0x6e000;
@@ -30,6 +31,8 @@ const _: () = assert!(MAX_RECORD_BYTES + META_BYTES == flash::SECTOR);
 const _: () = assert!(LEGACY_RECORD_BYTES + META_BYTES <= 3 * flash::SECTOR);
 const _: () = assert!(HEADER_RGB_BYTES + MAX_RECORD_BYTES <= FRAME_BYTES);
 
+// Allocate lazily on the first successful save. Export-only boots never write.
+static BOOT_GROUP: AtomicU32 = AtomicU32::new(0);
 static REQUEST: AtomicU8 = AtomicU8::new(0);
 static READY: Signal<CriticalSectionRawMutex, Pending> = Signal::new();
 static STATE: AtomicU8 = AtomicU8::new(0);
@@ -168,7 +171,10 @@ impl Slot {
     /// # Safety
     /// Keep the sector immutable while any record passed to `visit` is live.
     /// Return the first unused append address, if the framing can be trusted.
-    unsafe fn scan(self, mut visit: impl FnMut(u32, Capture<'static>)) -> Option<usize> {
+    // Share the parser across counting, exporting and saving instead of
+    // instantiating it separately for each callback and table shape.
+    #[inline(never)]
+    unsafe fn scan(self, visit: &mut dyn FnMut(u32, u32, Capture<'static>)) -> Option<usize> {
         if !self.owned() {
             return None;
         }
@@ -176,11 +182,13 @@ impl Slot {
         let size = match self {
             Self::Legacy(_) => LEGACY_RECORD_BYTES,
             Self::Compact(base) => {
-                compact_record_len(unsafe { record_bytes(base, COMPACT_HEADER_BYTES) })?
+                capture_boot::record_len(unsafe { record_bytes(base, capture_boot::PREFIX_BYTES) })?
             }
         };
-        if let Some(record) = Capture::open(unsafe { record_bytes(self.base(), size) }) {
-            visit(seq, record);
+        if let Some((group, record)) =
+            capture_boot::open(unsafe { record_bytes(self.base(), size) })
+        {
+            visit(seq, group, record);
         }
         let Self::Compact(base) = self else {
             return None;
@@ -204,10 +212,10 @@ impl Slot {
             }
             if let Some(seq) = committed_sequence(next + 4) {
                 let bytes = unsafe { record_bytes(data, size) };
-                if compact_record_len(bytes) == Some(size)
-                    && let Some(record) = Capture::open(bytes)
+                if capture_boot::record_len(bytes) == Some(size)
+                    && let Some((group, record)) = capture_boot::open(bytes)
                 {
-                    visit(seq, record);
+                    visit(seq, group, record);
                 }
             }
             // A fully reserved but uncommitted entry can be skipped.
@@ -326,7 +334,7 @@ pub unsafe fn export_count() -> usize {
     let mut count = 0;
     for slot in slots() {
         // SAFETY: no other tasks can modify these sectors in export boot.
-        unsafe { slot.scan(|_, _| count += 1) };
+        unsafe { slot.scan(&mut |_, _, _| count += 1) };
     }
     count
 }
@@ -334,15 +342,18 @@ pub unsafe fn export_count() -> usize {
 /// # Safety
 /// Export boot never starts the measurement or capture tasks. Keep these
 /// sectors immutable while the records are in use.
-pub unsafe fn export_records() -> [Option<Capture<'static>>; CAPTURE_TABLE_LEN] {
-    let mut captures = [(0u32, None); CAPTURE_TABLE_LEN];
+pub unsafe fn export_records() -> (
+    [Option<Capture<'static>>; CAPTURE_TABLE_LEN],
+    [u32; CAPTURE_TABLE_LEN],
+) {
+    let mut captures = [(0u32, 0u32, None); CAPTURE_TABLE_LEN];
     let mut len = 0;
     for slot in slots() {
         // SAFETY: no other tasks can modify these sectors in export boot.
         unsafe {
-            slot.scan(|seq, record| {
+            slot.scan(&mut |seq, group, record| {
                 if let Some(entry) = captures.get_mut(len) {
-                    *entry = (seq, Some(record));
+                    *entry = (seq, group, Some(record));
                     len += 1;
                 }
             });
@@ -350,8 +361,22 @@ pub unsafe fn export_records() -> [Option<Capture<'static>>; CAPTURE_TABLE_LEN] 
     }
     // The live sequences span at most a few captures, including across wrap.
     let anchor = captures[0].0;
-    captures[..len].sort_unstable_by_key(|&(seq, _)| seq.wrapping_sub(anchor) as i32);
-    captures.map(|(_, record)| record)
+    // The table is bounded at 160 records. Share a small insertion sort instead
+    // of instantiating a generic unstable sort for the larger tagged entries.
+    for i in 1..len {
+        let mut j = i;
+        while j > 0
+            && (captures[j].0.wrapping_sub(anchor) as i32)
+                < (captures[j - 1].0.wrapping_sub(anchor) as i32)
+        {
+            captures.swap(j, j - 1);
+            j -= 1;
+        }
+    }
+    (
+        captures.map(|(_, _, record)| record),
+        captures.map(|(_, group, _)| group),
+    )
 }
 
 /// # Safety
@@ -434,14 +459,20 @@ async fn save_screen(frame: &[u8; FRAME_BYTES], page: CapturePage) -> Status {
 }
 
 async fn save(size: usize, bytes: &mut dyn Iterator<Item = u8>) -> Status {
+    let size = size + capture_boot::HEADER_BYTES;
+    if size > MAX_RECORD_BYTES {
+        return Status::TooLarge;
+    }
     let mut latest = None;
+    let mut latest_group = 0;
     let mut append = None;
     let span = APPEND_META + size.next_multiple_of(4);
     for slot in slots() {
         // SAFETY: only this task writes to the capture journal. The callback
         // keeps sequence numbers only, so all record borrows end before writing.
         let next = unsafe {
-            slot.scan(|seq, _| {
+            slot.scan(&mut |seq, group, _| {
+                latest_group = latest_group.max(group);
                 if latest.is_none_or(|old| (seq.wrapping_sub(old) as i32) > 0) {
                     latest = Some(seq);
                 }
@@ -457,6 +488,16 @@ async fn save(size: usize, bytes: &mut dyn Iterator<Item = u8>) -> Status {
             append = Some((slot.base(), next));
         }
     }
+    let cached = BOOT_GROUP.load(Ordering::Relaxed);
+    let group = if cached == 0 {
+        latest_group + 1
+    } else {
+        cached
+    };
+    let Some(header) = capture_boot::header(group) else {
+        return Status::Unavailable;
+    };
+    let mut bytes = header.into_iter().chain(bytes);
     let seq = latest.map_or(0, |seq| seq.wrapping_add(1));
 
     let (base, data, commit) = if let Some((base, next)) = append {
@@ -507,6 +548,7 @@ async fn save(size: usize, bytes: &mut dyn Iterator<Item = u8>) -> Status {
         Timer::after_millis(1).await;
     }
     if write(base, commit, &[COMMITTED]).await {
+        BOOT_GROUP.store(group, Ordering::Relaxed);
         Status::Saved
     } else {
         Status::Failed
