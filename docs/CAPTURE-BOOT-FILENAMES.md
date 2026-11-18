@@ -2,9 +2,31 @@
 
 Branch: `codex/capture-boot-filenames`, based on
 `e9fab2e50ebf11649e7b0b7c12c48928dfc29d74` (`charging-logger`).
-**Implemented and PC/ARM-tested; not installed or tested on hardware.**
-No device access, flash writing, clearing or firmware-package creation was
-performed for this implementation. The existing normal memory layout is used.
+**Hardware follow-up:** commit `318d63c` was installed on one KWS-X1 using a
+matching two-stage pair. The scoped results are below. The earlier PC/ARM study
+used the existing normal memory layout and did not access a device.
+
+## One-device hardware follow-up (2026-11-18)
+
+Upper then main were accepted (26/26 batches each, no logged retry); the
+operator observed the upper two-flash waiting state and normal measurement
+startup after main. Previously exported logger files were backed up before
+installation. The screenshot exporter does not expose logger raw storage, so
+post-install logger-region byte preservation was not verified.
+
+The operator saved one OVERVIEW image on one boot, two on the next, then two
+long SYSTEM reports on each of two further boots. USB export produced
+`0001_OVERVIEW09.BMP`, `0002_OVERVIEW10.BMP`, `0002_OVERVIEW11.BMP`,
+`0003_SYSTEM12.BMP`, `0003_SYSTEM13.BMP`, `0004_SYSTEM14.BMP` and
+`0004_SYSTEM15.BMP`. The four SYSTEM images were 240×324, 4-bit BMPs; one
+from each SYSTEM boot was visually inspected, without a simultaneous display
+comparison. All eight earlier BMPs and previously exported new images stayed
+byte-identical. Capture occurred before the first post-install export, so a
+post-install/pre-capture raw comparison was not available.
+
+This covers one meter on PC 5 V. Active charging, physical interruption and
+downgrade recovery, other screen types, and the 9999→10000 boundary on hardware
+remain untested. The boundary has PC test coverage.
 
 ## User behavior
 
@@ -31,7 +53,7 @@ Old images cannot be assigned their historical boot: they keep their original
 names in the root. Clearing all images resets the next ID to 1. This is not a
 lifetime unique filename guarantee; keep separate PC archives across clears.
 IDs stop at 99,999,999 without wrapping. The display's save/full/clear controls
-are unchanged. This behavior is not in the previously published capture releases.
+are unchanged. The earlier capture.1 and capture.2 releases lack this behavior.
 
 ## Storage and old-data protection
 

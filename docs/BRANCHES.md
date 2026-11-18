@@ -6,7 +6,7 @@ English is primary; see [Japanese](BRANCHES.ja.md).
 | --- | --- | --- |
 | `main` | Screenshot firmware baseline and established releases | Default build |
 | `charging-logger` | Experimental voltage/current and passive PD logging, CSV export and AVS validation | `--features charging-logger` |
-| `codex/capture-boot-filenames` | Unreleased boot-number prefixes for new captures; existing data/names preserved | Default build; [scope and PC/ARM checks](CAPTURE-BOOT-FILENAMES.md) |
+| `codex/capture-boot-filenames` | Boot-number prefixes for new captures; existing data/names preserved | Default build; [scope and one-device validation](CAPTURE-BOOT-FILENAMES.md) |
 
 The logger branch starts from the shared screenshot baseline. Select the branch
 and build feature explicitly; switching a Git branch alone does not change
