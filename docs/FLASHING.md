@@ -4,43 +4,31 @@
 
 ## English
 
-Download `firmware-upper.X1C`, `firmware.X1C` and `SHA256SUMS` from the **same build**. Download the Windows x64 `flasher-x86_64-pc-windows-msvc.zip` and its checksum from the [upstream flasher release](https://github.com/kralonur/kws-x1-standalone-rs/releases/tag/flasher-v0.1.2). Verify the archive checksum, then put the extracted `flasher.exe` and the three firmware files in one folder. Use a USB data cable from the PC to the meter's USB-C receptacle and leave the meter's other connector empty.
+Download `firmware.X1C` and `SHA256SUMS` from the **same build**. The image needs flasher 0.2.0 or newer; until it is released, build it from this repository with `cargo build --release -p flasher --locked` (`target\release\flasher.exe`). Put `flasher.exe` and both files in one folder. Use a USB data cable from the PC to the meter's USB-C receptacle, leave the meter's other connector empty and connect only one meter.
 
-Open PowerShell in that folder. Verify the two files against `SHA256SUMS`, and let the flasher check their format before writing:
+Open PowerShell in that folder. Verify the image against `SHA256SUMS`, and let the flasher check its format before writing:
 
 ```powershell
-$hashes = @{}
-foreach ($name in 'firmware-upper.X1C', 'firmware.X1C') {
-    $match = @(Get-Content .\SHA256SUMS | Where-Object {
-        $_ -match ('^[0-9A-Fa-f]{64}\s+' + [regex]::Escape($name) + '$')
-    })
-    if ($match.Count -ne 1) { throw "Missing or duplicate checksum for $name" }
-    $expected = $match[0].Substring(0, 64).ToLowerInvariant()
-    $actual = (Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) { throw "Checksum mismatch for $name" }
-    $hashes[$name] = $expected
-    .\flasher.exe --dry-run --image $name --confirm-sha256 $expected
-    if ($LASTEXITCODE -ne 0) { throw "Validation failed for $name" }
-}
+$match = @(Get-Content .\SHA256SUMS | Where-Object { $_ -match '^[0-9A-Fa-f]{64}\s+firmware\.X1C$' })
+if ($match.Count -ne 1) { throw "Missing or duplicate checksum for firmware.X1C" }
+$hash = $match[0].Substring(0, 64).ToLowerInvariant()
+$actual = (Get-FileHash -LiteralPath .\firmware.X1C -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $hash) { throw "Checksum mismatch for firmware.X1C" }
+.\flasher.exe --dry-run --image .\firmware.X1C --confirm-sha256 $hash
+if ($LASTEXITCODE -ne 0) { throw "Validation failed for firmware.X1C" }
 ```
 
-1. **Stage 1.** Unplug the meter. Hold **Back + OK** while plugging it into the PC, keep the buttons down for about one second, then release them. The display should show `Bootloader V1.1` and `--info` should report `mode=0`. Run the following in the same PowerShell window:
+Unplug the meter. Hold **Back + OK** while plugging it into the PC, keep the buttons down for about one second, then release them. The display should show `Bootloader V1.1` and `--info` should report `mode=0`. Run:
 
-   ```powershell
-   .\flasher.exe --info
-   .\flasher.exe --image .\firmware-upper.X1C --confirm-sha256 $hashes['firmware-upper.X1C']
-   ```
+```powershell
+.\flasher.exe --info
+.\flasher.exe --image .\firmware.X1C --confirm-sha256 $hash
+```
 
-   Wait for bootloader acceptance, then for **two short backlight flashes followed by steady illumination**. The meter is waiting for stage 2.
+The flasher writes the image through the bootloader (`[1/2] Factory bootloader`), then sends the remaining data to the meter's temporary installer after it restarts (`[2/2] USB installer`), without a reconnect. `Transfer complete` does not mean the update is finished: keep the meter connected until the measurement screen appears.
 
-2. **Stage 2.** Unplug, then reconnect with **Back + OK** held as before. Check `Bootloader V1.1` and `mode=0` again. Run:
-
-   ```powershell
-   .\flasher.exe --info
-   .\flasher.exe --image .\firmware.X1C --confirm-sha256 $hashes['firmware.X1C']
-   ```
-
-   Wait for bootloader acceptance and the measurement screen after restart. If a command fails, stop at that stage, re-enter bootloader mode, and retry the **same** file from the verified pair. If you did not see the two flashes after stage 1, repeat stage 1 before moving on.
+- If the flasher stops after stage 1, or the power is lost, the meter waits in the installer with a blank, backlit screen. Reconnect it **without** holding any button and run the same command with the same file.
+- If the backlight blinks, or anything else fails, re-enter bootloader mode with **Back + OK** and flash the same file again.
 
 ## 日本語
 

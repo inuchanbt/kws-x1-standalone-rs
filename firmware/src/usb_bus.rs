@@ -50,6 +50,7 @@ const CLEAR_NAK: u32 = 1 << 26;
 const STALL: u32 = 1 << 21;
 const ACTIVE: u32 = 1 << 15;
 const BULK: u32 = 2 << 18;
+const INTERRUPT: u32 = 3 << 18;
 const ONE_PACKET: u32 = 1 << 19;
 const EP0_SETUP_COUNT: u32 = 3 << 29;
 const TRANSFER_DONE: u32 = 1;
@@ -181,6 +182,8 @@ impl Rx {
 
 pub struct Bus {
     sizes: [[u16; 2]; 2],
+    /// Endpoint 1's transfer type bits.
+    kind: u32,
     rx: Mutex<RefCell<Rx>>,
 }
 
@@ -214,9 +217,16 @@ impl Bus {
         write(CONFIG, 3); // Full speed with the embedded FS PHY.
         Some(Self {
             sizes: [[0; 2]; 2],
+            kind: BULK,
             rx: Mutex::new(RefCell::new(Rx::new())),
         })
     }
+}
+
+/// Drop off the bus. Unpacker only.
+#[allow(dead_code)]
+pub fn detach() {
+    write(CONTROL, SOFT_DISCONNECT);
 }
 
 impl UsbBus for Bus {
@@ -233,6 +243,10 @@ impl UsbBus for Bus {
         let index = match kind {
             EndpointType::Control if size == 64 => 0,
             EndpointType::Bulk if size == 64 => 1,
+            EndpointType::Interrupt if size == 64 => {
+                self.kind = INTERRUPT;
+                1
+            }
             _ => return Err(UsbError::EndpointOverflow),
         };
         let endpoint = EndpointAddress::from_parts(index, direction);
@@ -268,8 +282,11 @@ impl UsbBus for Bus {
         write(ep(OUT, 1) + 8, u32::MAX);
         write(ep(IN, 0), ACTIVE | SET_NAK); // EP0 maximum packet field 0 = 64.
         write(ep(OUT, 0), ACTIVE);
-        write(ep(IN, 1), ACTIVE | BULK | DATA0 | SET_NAK | (1 << 22) | 64);
-        write(ep(OUT, 1), ACTIVE | BULK | DATA0 | 64);
+        write(
+            ep(IN, 1),
+            ACTIVE | self.kind | DATA0 | SET_NAK | (1 << 22) | 64,
+        );
+        write(ep(OUT, 1), ACTIVE | self.kind | DATA0 | 64);
         arm_out(0, 64);
         arm_out(1, 64);
     }

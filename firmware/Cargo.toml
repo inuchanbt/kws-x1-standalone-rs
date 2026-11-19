@@ -40,6 +40,8 @@ capture-backup = ["firmware-core/capture-backup"]
 capture-diagnostic = ["capture-backup"]
 # Enable the device-specific cleanup prompt in the initialized application.
 capture-reclaim = []
+# Unpacker only: take the upper region from the flasher over USB.
+usb-install = []
 
 [dependencies]
 cortex-m = { workspace = true, features = ["critical-section-single-core"] }
@@ -59,5 +61,5 @@ panic-halt.workspace = true
 qc-protocol.workspace = true
 single-wire-protocols.workspace = true
 u8g2-fonts.workspace = true
-usb-device = { version = "0.3.2", default-features = false }
+usb-device.workspace = true
 usbpd.workspace = true
