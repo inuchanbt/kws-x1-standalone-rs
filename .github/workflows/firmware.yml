@@ -33,7 +33,11 @@ jobs:
       - name: Validate firmware and packaging tools
         run: |
           cargo fmt --all -- --check
-          cargo clippy -p firmware --all-features --target thumbv7em-none-eabihf --locked -- -D warnings
+          # charging-logger excludes the capture diagnostics, so lint both variants.
+          capture=i2c-rx-poll-diagnostic,pd-hold-diagnostic,pd-boot-diagnostic,cable-log,flash-probe,capture-probe,capture-backup,capture-diagnostic,capture-reclaim
+          logger=i2c-rx-poll-diagnostic,pd-hold-diagnostic,pd-boot-diagnostic,cable-log,flash-probe,charging-logger
+          cargo clippy -p firmware --features "$capture" --target thumbv7em-none-eabihf --locked -- -D warnings
+          cargo clippy -p firmware --features "$logger" --target thumbv7em-none-eabihf --locked -- -D warnings
           cargo clippy --workspace --exclude firmware --all-targets --locked -- -D warnings
           cargo test -p firmware-core --test screenshot --features capture-backup --locked
           cargo test -p firmware-pack --test cli --locked

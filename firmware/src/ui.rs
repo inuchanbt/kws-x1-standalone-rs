@@ -3831,12 +3831,14 @@ fn draw_detail_line<D: DrawTarget<Color = Rgb565>>(
     );
 }
 
+#[cfg_attr(feature = "charging-logger", allow(dead_code))]
 pub fn report_capture_colors(detail: Detail) -> [u16; 3] {
     let (_, accent) = tab_style(Tab::detail(detail), false);
     [BLACK, WHITE, accent].map(|color| RawU16::from(color).into_inner())
 }
 
 /// Draw one twelve-pixel-high band with the same font and offsets as the LCD.
+#[cfg_attr(feature = "charging-logger", allow(dead_code))]
 pub fn draw_report_capture_row(heading: bool, line: &str, pixels: &mut [u8; BAND_BYTES]) {
     let mut band = DetailBand {
         pixels,
@@ -3851,6 +3853,7 @@ pub fn draw_report_capture_row(heading: bool, line: &str, pixels: &mut [u8; BAND
     );
 }
 
+#[cfg_attr(feature = "charging-logger", allow(dead_code))]
 struct DetailBand<'a> {
     pixels: &'a mut [u8; BAND_BYTES],
     index: u8,

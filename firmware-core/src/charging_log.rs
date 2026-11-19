@@ -61,9 +61,11 @@ impl<'a> Disk<'a> {
         let counts = sectors.map(|s| {
             if valid_header(s).is_some() {
                 s[HEADER..]
-                    .chunks_exact(RECORD)
+                    .as_chunks::<RECORD>()
+                    .0
+                    .iter()
                     .take(SAMPLES)
-                    .take_while(|r| valid_record(r).is_some())
+                    .take_while(|r| valid_record(&r[..]).is_some())
                     .count()
             } else {
                 0
