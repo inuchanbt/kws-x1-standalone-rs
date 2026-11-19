@@ -1988,6 +1988,11 @@ async fn usb_voltage() -> bool {
 }
 
 /// The clear boot has exclusive use of the panel and has not started USB or PD.
+// Without capture-reclaim the clear result is always `None`.
+#[cfg_attr(
+    not(feature = "capture-reclaim"),
+    allow(clippy::unnecessary_literal_unwrap)
+)]
 async fn clear_screenshots(inputs: &[InputPin; 4], reclaim: bool) {
     let fb = framebuffer();
     let frame = unsafe { &mut *fb.cast::<Frame>() };

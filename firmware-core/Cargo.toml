@@ -12,6 +12,8 @@ bench = false
 
 [features]
 capture-backup = []
+# Lets examples that include firmware/src/ui.rs check its logger branches.
+charging-logger = []
 
 [dependencies]
 fusb302-pd.workspace = true

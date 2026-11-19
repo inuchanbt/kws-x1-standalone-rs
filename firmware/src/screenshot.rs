@@ -349,8 +349,16 @@ pub unsafe fn export_records() -> [Option<Capture<'static>>; CAPTURE_TABLE_LEN] 
         }
     }
     // The live sequences span at most a few captures, including across wrap.
+    // Insertion sort: avoids pulling std's generic sort into flash.
     let anchor = captures[0].0;
-    captures[..len].sort_unstable_by_key(|&(seq, _)| seq.wrapping_sub(anchor) as i32);
+    let key = |entry: &(u32, Option<Capture<'static>>)| entry.0.wrapping_sub(anchor) as i32;
+    for i in 1..len {
+        let mut j = i;
+        while j > 0 && key(&captures[j - 1]) > key(&captures[j]) {
+            captures.swap(j - 1, j);
+            j -= 1;
+        }
+    }
     captures.map(|(_, record)| record)
 }
 
